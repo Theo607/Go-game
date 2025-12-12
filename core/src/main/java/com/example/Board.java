@@ -1,8 +1,5 @@
 package com.example;
-
-public enum InterSec {
-    None, White, Black
-}
+import java.io.Serializable;
 
 public class Board implements Serializable{
     private int size = 19;
@@ -45,7 +42,8 @@ public class Board implements Serializable{
         sb.append("   ");
         
         for (int i = 0; i < size; i++) {
-            (i < 9) ? sb.append("  ") : sb.append(" ");
+            if (i < 9) sb.append("  ");
+            else sb.append(" ");
             sb.append(i+1);
         }
         sb.append("\n");
@@ -54,14 +52,15 @@ public class Board implements Serializable{
             for (int y = 0; y < size; y++) {
                 
                 InterSec field = getInterSec(x, y);
-                (x < 9) ? sb.append("  ") : sb.append(" ");
+                if (x < 9) sb.append("  ");
+                else sb.append(" ");
                 sb.append(x+1);
                 
                 switch(field) {
-                    case(InterSec.Black):
+                    case Black:
                         sb.append(" O ");
                         break;
-                    case(InterSec.White):
+                    case White:
                         sb.append(" X ");
                         break;
                     default:
