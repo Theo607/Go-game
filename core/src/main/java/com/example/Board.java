@@ -4,7 +4,7 @@ public enum InterSec {
     None, White, Black
 }
 
-public class Board {
+public class Board implements Serializable{
     private int size = 19;
     private InterSec[][] field;
 
@@ -38,5 +38,39 @@ public class Board {
         } else {
             throw new IndexOutOfBoundsException("Coordinates out of bounds: x=" + x + ", y=" + y);
         }
+    }
+
+    public String boardToString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("   ");
+        
+        for (int i = 0; i < size; i++) {
+            (i < 9) ? sb.append("  ") : sb.append(" ");
+            sb.append(i+1);
+        }
+        sb.append("\n");
+        
+        for (int x = 0; x < size; x++) {
+            for (int y = 0; y < size; y++) {
+                
+                InterSec field = getInterSec(x, y);
+                (x < 9) ? sb.append("  ") : sb.append(" ");
+                sb.append(x+1);
+                
+                switch(field) {
+                    case(InterSec.Black):
+                        sb.append(" O ");
+                        break;
+                    case(InterSec.White):
+                        sb.append(" X ");
+                        break;
+                    default:
+                        sb.append(" . ");
+                        break;
+                }
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
     }
 }
