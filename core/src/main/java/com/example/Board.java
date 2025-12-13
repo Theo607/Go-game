@@ -22,54 +22,61 @@ public class Board implements Serializable{
     }
 
     // Assuming 1 <= x, y <= size
-    public InterSec getInterSec(int x, int y) {
-        if (inBound(x) && inBound(y)) {
-            return field[x - 1][y - 1];
+    public InterSec getInterSec(int row, int column) {
+        if (inBound(row) && inBound(column)) {
+            return field[row - 1][column - 1];
         }
-        throw new IndexOutOfBoundsException("Coordinates out of bounds: x=" + x + ", y=" + y);
+        throw new IndexOutOfBoundsException("Coordinates out of bounds: row=" + row + ", column=" + column);
     }
 
-    public void setInterSec(int x, int y, InterSec state) {
-        if (inBound(x) && inBound(y)) {
-            field[x - 1][y - 1] = state;
+    public void setInterSec(int row, int column, InterSec state) {
+        if (inBound(row) && inBound(column)) {
+            field[row - 1][column - 1] = state;
         } else {
-            throw new IndexOutOfBoundsException("Coordinates out of bounds: x=" + x + ", y=" + y);
+            throw new IndexOutOfBoundsException("Coordinates out of bounds: row=" + row + ", column=" + column);
         }
     }
 
     public String boardToString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("   ");
-        
-        for (int i = 0; i < size; i++) {
-            if (i < 9) sb.append("  ");
-            else sb.append(" ");
-            sb.append(i+1);
-        }
-        sb.append("\n");
-        
-        for (int x = 0; x < size; x++) {
-            for (int y = 0; y < size; y++) {
-                
-                InterSec field = getInterSec(x+1, y+1);
-                if (x < 9) sb.append("  ");
-                else sb.append(" ");
-                sb.append(x+1);
-                
-                switch(field) {
-                    case Black:
-                        sb.append(" O ");
-                        break;
-                    case White:
-                        sb.append(" X ");
-                        break;
-                    default:
-                        sb.append(" . ");
-                        break;
-                }
-            }
-            sb.append("\n");
-        }
-        return sb.toString();
-    }
+      StringBuilder sb = new StringBuilder();
+
+      sb.append("    ");
+      for (int col = 1; col <= size; col++) {
+          sb.append(col).append("   ");
+      }
+      sb.append("\n");
+
+      for (int row = 1; row <= size; row++) {
+
+          sb.append(String.format("%3d ", row));
+          for (int col = 1; col <= size; col++) {
+              InterSec field = getInterSec(row, col);
+
+              char c;
+              switch (field) {
+                  case Black -> c = 'O';
+                  case White -> c = 'X';
+                  default -> c = '+';
+              }
+
+              sb.append(c);
+
+              if (col < size) {
+                  sb.append("---");
+              }
+          }
+          sb.append("\n");
+
+          if (row < size) {
+              sb.append("    ");
+              for (int col = 1; col <= size; col++) {
+                  sb.append("|");
+                  if (col < size) sb.append("   ");
+              }
+              sb.append("\n");
+          }
+      }
+
+      return sb.toString();
+  }
 }
