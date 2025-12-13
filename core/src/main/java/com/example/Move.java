@@ -1,14 +1,14 @@
 package com.example;
 
-import com.example.InterSec;
+import com.example.Color;
 import com.example.exceptions.InvalidMove;
 
 public class Move {
     private int x;
     private int y;
-    private InterSec state;
+    private Color state;
 
-    public Move(int x, int y, InterSec colour) throws InvalidMove {
+    public Move(int x, int y, Color colour) throws InvalidMove {
         if (x < 1 || y < 1) throw new InvalidMove("This move has invalid coordinates.");
         this.x = x;
         this.y = y;
@@ -17,6 +17,6 @@ public class Move {
 
     public int getX() { return x; }
     public int getY() { return y; }
-    public InterSec getState() { return state; }
+    public Color getState() { return state; }
 }
 

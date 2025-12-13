@@ -4,7 +4,6 @@ import com.example.exceptions.EmptyMove;
 import com.example.exceptions.IncorrectBoardSize;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import com.example.InterSec;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -30,7 +29,7 @@ class GameTest {
 
     @Test
     void testAcceptMove() throws Exception {
-        Move move = new Move(1, 1, InterSec.White); // match your enum case
+        Move move = new Move(1, 1, Color.WHITE); // match your enum case
         game.setCurrentMove(move);
         assertDoesNotThrow(() -> game.acceptMove());
     }

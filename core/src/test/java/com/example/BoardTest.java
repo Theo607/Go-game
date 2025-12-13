@@ -14,8 +14,8 @@ public class BoardTest {
   void boardToStringTest() {
       Board board = new Board(3);
       // (row, col)
-      board.setInterSec(2, 3, InterSec.White); // row 2, col 3 -> X
-      board.setInterSec(2, 1, InterSec.Black); // row 2, col 1 -> O
+      board.setInterSec(2, 3, Color.WHITE); // row 2, col 3 -> X
+      board.setInterSec(2, 1, Color.BLACK); // row 2, col 1 -> O
 
       String expected =
           "    1   2   3\n" +
@@ -28,11 +28,11 @@ public class BoardTest {
       assertEquals(expected, board.boardToString().stripTrailing());
   }
 
-    @Test
-      void testOutOfBounds() {
-        Board board = new Board(19);
+  @Test
+  void testOutOfBounds() {
+    Board board = new Board(19);
 
-        assertThrows(IndexOutOfBoundsException.class, () -> board.getInterSec(0, 5));
-        assertThrows(IndexOutOfBoundsException.class, () -> board.getInterSec(20, 10));
-    }
+    assertThrows(IndexOutOfBoundsException.class, () -> board.getInterSec(0, 5));
+    assertThrows(IndexOutOfBoundsException.class, () -> board.getInterSec(20, 10));
+  }
 }

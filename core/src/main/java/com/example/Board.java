@@ -3,16 +3,16 @@ import java.io.Serializable;
 
 public class Board implements Serializable{
     private int size = 19;
-    private final InterSec[][] field;
+    private final Color[][] field;
 
     public Board(int lines) {
         this.size = lines;
-        field = new InterSec[size][size];
+        field = new Color[size][size];
 
         // Initialize all squares to None
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
-                field[i][j] = InterSec.None;
+                field[i][j] = Color.NONE;
             }
         }
     }
@@ -22,14 +22,14 @@ public class Board implements Serializable{
     }
 
     // Assuming 1 <= x, y <= size
-    public InterSec getInterSec(int row, int column) {
+    public Color getInterSec(int row, int column) {
         if (inBound(row) && inBound(column)) {
             return field[row - 1][column - 1];
         }
         throw new IndexOutOfBoundsException("Coordinates out of bounds: row=" + row + ", column=" + column);
     }
 
-    public void setInterSec(int row, int column, InterSec state) {
+    public void setInterSec(int row, int column, Color state) {
         if (inBound(row) && inBound(column)) {
             field[row - 1][column - 1] = state;
         } else {
@@ -50,12 +50,12 @@ public class Board implements Serializable{
 
           sb.append(String.format("%3d ", row));
           for (int col = 1; col <= size; col++) {
-              InterSec field = getInterSec(row, col);
+              Color field = getInterSec(row, col);
 
               char c;
               switch (field) {
-                  case Black -> c = 'O';
-                  case White -> c = 'X';
+                  case Color.BLACK -> c = 'O';
+                  case Color.WHITE -> c = 'X';
                   default -> c = '+';
               }
 
