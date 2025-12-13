@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-
+import java.util.Scanner;
 
 public class Client {
     private static final String HOST = "localhost";
@@ -13,6 +13,8 @@ public class Client {
     private ObjectOutputStream out;
     private ObjectInputStream in;
     private Thread listenerThread;
+    private final ClientRequestHandler handler = new ClientRequestHandler(this);
+
     public void start() {
         try {
             this.socket = new Socket(HOST, PORT);
@@ -21,14 +23,12 @@ public class Client {
 
             this.listenerThread = new Thread(new ClientListener(in, this));
             this.listenerThread.start();
+
+            handleConsoleInput();
+
         } catch (IOException e) {
             System.out.println("Unable to connect to server.");
         }
-    }
-
-    public void handleServerRequest(ServerRequest request) {
-        // Handle different types of server requests here
-        System.out.println("Received request: " + request.getType());
     }
 
     public void sendMessage(NetworkMessage message) {
@@ -38,6 +38,18 @@ public class Client {
         } catch (IOException e) {
             System.out.println("Failed to send message to server.");
         }
+    }
+
+    public void sendCommand(String commandType, String... parameters) {
+        sendMessage(new ClientCommand(commandType, parameters));
+    }
+
+    public void handleServerRequest(ServerRequest request) {
+        handler.handleRequest(request);
+    }
+
+    public void printStr(String message) {
+        System.out.println(message);
     }
 
     public void kill() {
@@ -51,8 +63,46 @@ public class Client {
         }
     }
 
-    public void printStr(String message) {
-        System.out.println(message);
+    private void handleConsoleInput() {
+        Scanner scanner = new Scanner(System.in);
+        printStr("Enter commands: setname <name>, create <roomId> <roomName>, join <roomId>, list, quit");
+
+        while (true) {
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty())
+                continue;
+
+            String[] parts = input.split(" ", 3);
+            String command = parts[0].toLowerCase();
+
+            switch (command) {
+                case "setname" -> {
+                    if (parts.length >= 2)
+                        sendCommand("SET_USERNAME", parts[1]);
+                    else
+                        printStr("Usage: setname <username>");
+                }
+                case "create" -> {
+                    if (parts.length >= 2)
+                        sendCommand("CREATE_ROOM", parts[1]);
+                    else
+                        printStr("Usage: create <roomName>");
+                }
+                case "join" -> {
+                    if (parts.length >= 2)
+                        sendCommand("JOIN_ROOM", parts[1]);
+                    else
+                        printStr("Usage: join <roomId>");
+                }
+                case "list" -> sendCommand("LIST_ROOMS");
+                case "quit" -> {
+                    printStr("Exiting...");
+                    kill();
+                    return;
+                }
+                default -> printStr("Unknown command. Available: setname, create, join, list, quit");
+            }
+        }
     }
 
     public static void main(String[] args) {

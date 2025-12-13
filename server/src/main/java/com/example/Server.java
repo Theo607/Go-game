@@ -3,69 +3,42 @@ package com.example;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.LinkedList;
-import java.util.Queue;
-
-import com.example.exceptions.IncorrectBoardSize;
 
 public class Server {
-
-    private final int port;
-    private final Queue<ClientHandler> waitingPlayers = new LinkedList<>();
-
-    public Server(int port) {
-        this.port = port;
-    }
+    private static final int PORT = 1664;
+    private ServerSocket serverSocket;
+    private final ClientManager clientManager = new ClientManager();
+    private final RoomManager roomManager = new RoomManager();
 
     public void start() {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("Server started on port " + port);
+        try {
+            serverSocket = new ServerSocket(PORT);
+            System.out.println("Server started on port " + PORT);
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 System.out.println("New client connected: " + clientSocket.getInetAddress());
 
-                ClientHandler handler = new ClientHandler(clientSocket, this);
-                new Thread(handler).start(); // handle client in its own thread
+                ClientHandler handler = new ClientHandler(clientSocket, clientManager, roomManager);
+                new Thread(handler).start();
             }
-
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("Server error: " + e.getMessage());
+        } finally {
+            stop();
         }
     }
 
-    /**
-     * Adds a client to the waiting list and starts a game if two are available.
-     */
-    public synchronized void addWaitingPlayer(ClientHandler player) throws IncorrectBoardSize {
-        waitingPlayers.add(player);
-
-        if (waitingPlayers.size() >= 2) {
-            ClientHandler p1 = waitingPlayers.poll();
-            ClientHandler p2 = waitingPlayers.poll();
-
-            System.out.println("Starting a new game session between two players.");
-            GameSession session = new GameSession(p1, p2);
-            p1.setSession(session);
-            p2.setSession(session);
-            System.out.println(p1.getUsername() + " vs " + p2.getUsername());
-            new Thread(session).start();
+    public void stop() {
+        try {
+            if (serverSocket != null) serverSocket.close();
+            System.out.println("Server stopped.");
+        } catch (IOException e) {
+            System.out.println("Error closing server: " + e.getMessage());
         }
-    }
-
-    public synchronized void removePlayer(ClientHandler player) {
-        System.out.println("Player " + player.getUsername() + " removed");
-        waitingPlayers.remove(player);
-    }
-
-    public synchronized void movePlayerBack(ClientHandler player) {
-        waitingPlayers.remove(player);
-        waitingPlayers.add(player);
     }
 
     public static void main(String[] args) {
-        Server server = new Server(1664);
-        server.start();
+        new Server().start();
     }
 }
-
