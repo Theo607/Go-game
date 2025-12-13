@@ -51,7 +51,7 @@ public class Board implements Serializable{
         for (int x = 0; x < size; x++) {
             for (int y = 0; y < size; y++) {
                 
-                InterSec field = getInterSec(x, y);
+                InterSec field = getInterSec(x+1, y+1);
                 if (x < 9) sb.append("  ");
                 else sb.append(" ");
                 sb.append(x+1);
