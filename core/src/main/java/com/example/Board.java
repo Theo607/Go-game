@@ -3,7 +3,7 @@ import java.io.Serializable;
 
 public class Board implements Serializable{
     private int size = 19;
-    private InterSec[][] field;
+    private final InterSec[][] field;
 
     public Board(int lines) {
         this.size = lines;
