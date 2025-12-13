@@ -1,11 +1,12 @@
 package com.example;
 
-import com.example.exceptions.IncorrectBoardSize;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.LinkedList;
 import java.util.Queue;
+
+import com.example.exceptions.IncorrectBoardSize;
 
 public class Server {
 
@@ -45,8 +46,21 @@ public class Server {
 
             System.out.println("Starting a new game session between two players.");
             GameSession session = new GameSession(p1, p2);
+            p1.setSession(session);
+            p2.setSession(session);
+            System.out.println(p1.getUsername() + " vs " + p2.getUsername());
             new Thread(session).start();
         }
+    }
+
+    public synchronized void removePlayer(ClientHandler player) {
+        System.out.println("Player " + player.getUsername() + " removed");
+        waitingPlayers.remove(player);
+    }
+
+    public synchronized void movePlayerBack(ClientHandler player) {
+        waitingPlayers.remove(player);
+        waitingPlayers.add(player);
     }
 
     public static void main(String[] args) {

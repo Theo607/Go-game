@@ -1,7 +1,5 @@
 package com.example;
 
-import com.example.Board;
-import com.example.Game;
 import com.example.exceptions.IncorrectBoardSize;
 
 public class GameSession implements Runnable {
@@ -31,6 +29,12 @@ public class GameSession implements Runnable {
         // - wait for moves from each player
         // - update game
         // - send updated board to both players
+    }
+
+    public void pass(ClientHandler player) {}
+
+    public void resigned(ClientHandler player) {
+        if (player.equals(player1))
     }
 }
 

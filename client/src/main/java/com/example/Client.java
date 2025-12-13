@@ -14,15 +14,17 @@ public class Client {
     private static int boardSize = 19;
 
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-
-        System.out.println("Type your username: ");
-        USERNAME = scanner.nextLine();
+        
 
         try (Socket socket = new Socket(HOST, PORT);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
                 
+                Scanner scanner = new Scanner(System.in);
+
+                System.out.println("Type your username: ");
+                USERNAME = scanner.nextLine();
+                out.writeObject(USERNAME);
                 System.out.println("Connected to server as " + USERNAME);
                 String command;
                 do { 
@@ -30,11 +32,11 @@ public class Client {
                     command = scanner.nextLine().trim().toLowerCase();
                     switch(command) {
                         case "pass":
-                            out.writeObject("pass:" + USERNAME);
+                            out.writeObject("pass");
                             out.flush();
                             break;
                         case "resign":
-                            out.writeObject("resign" + USERNAME);
+                            out.writeObject("resign");
                             out.flush();
                             break;
                         default:
@@ -48,7 +50,7 @@ public class Client {
                                 int column = Integer.parseInt(parts[1]);
                                 if (row < 1 || row > boardSize || column < 1 || column > boardSize)
                                     System.out.println("Parameters out of bounds [1, " + boardSize + "]");
-                                out.writeObject("move:" + USERNAME + ":" + row + ":" + column);
+                                out.writeObject("move " + row + " " + column);
                                 out.flush();
                             } catch (NumberFormatException e) {
                                 System.out.println("Parameters should be positive integers");
@@ -56,12 +58,12 @@ public class Client {
                     }
                 } while (!command.equalsIgnoreCase("resign"));
                 System.out.println("Game ended. Player " + USERNAME + " resigned");
+                scanner.close();
         } catch(ConnectException e) {
             System.err.println("Connection error: Server not found on " + HOST + ":" + PORT);
         } catch (IOException e) {
             System.err.println("I/O error ocured: " + e.getMessage());
         }
-        scanner.close();
         System.out.println("Disconnected");
     }
 }
