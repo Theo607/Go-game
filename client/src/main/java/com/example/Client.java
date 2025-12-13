@@ -7,7 +7,7 @@ import java.net.ConnectException;
 import java.net.Socket;
 import java.util.Scanner;
 
-public class Client{
+public class Client {
     private static final String HOST = "localhost";
     private static final int PORT = 1664;
     private static String USERNAME;
@@ -47,7 +47,7 @@ public class Client{
                                 int row = Integer.parseInt(parts[0]);
                                 int column = Integer.parseInt(parts[1]);
                                 if (row < 1 || row > boardSize || column < 1 || column > boardSize)
-                                    System.out.println("Parameters out of bounds [1, " + size + "]");
+                                    System.out.println("Parameters out of bounds [1, " + boardSize + "]");
                                 out.writeObject("move:" + USERNAME + ":" + row + ":" + column);
                                 out.flush();
                             } catch (NumberFormatException e) {
