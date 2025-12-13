@@ -1,6 +1,7 @@
 package com.example;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 public class BoardTest {
 
@@ -9,7 +10,11 @@ public class BoardTest {
         Board board = new Board(3);
         board.setInterSec(3, 1, InterSec.Black);
         board.setInterSec(1, 2, InterSec.White);
-        assertEquals("", board.boardToString());
+        String expected = "    1  2  3 \n"
+                         +" 1  .  X  . \n"
+                         +" 2  .  .  . \n"
+                         +" 3  O  .  . \n";
+        assertEquals(expected, board.boardToString());
     }
 
     @Test

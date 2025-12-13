@@ -9,10 +9,10 @@ import java.util.Scanner;
 
 public class Client{
     private static final String HOST = "localhost";
-    private static final int PORT = 4484;
+    private static final int PORT = 1664;
     private static String USERNAME;
     private static int boardSize = 19;
-
+    
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
@@ -56,6 +56,13 @@ public class Client{
                     }
                 } while (!command.equalsIgnoreCase("resign"));
                 System.out.println("Game ended. Player " + USERNAME + " resigned");
+
+                do { 
+                    System.out.println("Type your move (row, column), 'pass' or 'resign'");
+                } while (!scanner.nextLine().equals("resign"));
+                System.out.println("Game ended");
+                socket.close();
+
         } catch(ConnectException e) {
             System.err.println("Connection error: Server not found on " + HOST + ":" + PORT);
         } catch (IOException e) {
