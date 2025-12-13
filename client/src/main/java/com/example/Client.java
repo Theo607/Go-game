@@ -9,7 +9,7 @@ import java.util.Scanner;
 
 public class Client{
     private static final String HOST = "localhost";
-    private static final int PORT = 4484;
+    private static final int PORT = 1664;
     private static String USERNAME;
     private static int boardSize = 19;
 
