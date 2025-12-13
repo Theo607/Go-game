@@ -17,11 +17,40 @@ public class RoomManager {
     }
 
     public synchronized boolean joinRoom(String roomId, ClientHandler client) {
+        if (client.getCurrentRoom() != null) {
+            return false;
+        }
+
         Room room = rooms.get(roomId);
         if (room != null) {
-            return room.join(client);
+            boolean success = room.join(client);
+            if (success) {
+                client.setCurrentRoom(room);
+                return true;
+            }
         }
         return false;
+    }
+
+    public synchronized void leaveRoom(ClientHandler client) {
+        Room room = client.getCurrentRoom();
+        if (room != null) {
+            boolean ifOwner = false;
+            if (room.getOwner() == client) {
+                ifOwner = true;
+            }
+            room.leave(client); // remove player
+            client.setCurrentRoom(null);
+
+            // If the owner left, remove the room
+            if (ifOwner) {
+                rooms.remove(room.getRoomId());
+            }
+            // Optionally, if room is empty, also remove
+            else if (room.getPlayers().isEmpty()) {
+                rooms.remove(room.getRoomId());
+            }
+        }
     }
 
     public synchronized Room getRoom(String roomId) {

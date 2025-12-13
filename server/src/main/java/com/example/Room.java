@@ -20,9 +20,17 @@ public class Room {
     }
 
     public synchronized boolean join(ClientHandler client) {
-        if (players.size() >= MAX_PLAYERS || started) return false;
+        if (players.size() >= MAX_PLAYERS || started)
+            return false;
         players.add(client);
         return true;
+    }
+
+    public synchronized void leave(ClientHandler client) {
+        players.remove(client);
+        if (client.getCurrentRoom() == this) {
+            client.setCurrentRoom(null);
+        }
     }
 
     public synchronized void start() {
@@ -37,9 +45,23 @@ public class Room {
         }
     }
 
-    public String getRoomId() { return roomId; }
-    public String getRoomName() { return roomName; }
-    public ClientHandler getOwner() { return owner; }
-    public boolean isStarted() { return started; }
-    public List<ClientHandler> getPlayers() { return players; }
+    public String getRoomId() {
+        return roomId;
+    }
+
+    public String getRoomName() {
+        return roomName;
+    }
+
+    public ClientHandler getOwner() {
+        return owner;
+    }
+
+    public boolean isStarted() {
+        return started;
+    }
+
+    public List<ClientHandler> getPlayers() {
+        return players;
+    }
 }

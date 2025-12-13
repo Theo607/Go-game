@@ -94,6 +94,7 @@ public class Client {
                     else
                         printStr("Usage: join <roomId>");
                 }
+                case "leave" -> sendCommand("LEAVE_ROOM");
                 case "list" -> sendCommand("LIST_ROOMS");
                 case "quit" -> {
                     printStr("Exiting...");

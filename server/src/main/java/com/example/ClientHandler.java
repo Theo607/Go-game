@@ -10,6 +10,7 @@ public class ClientHandler implements Runnable {
     private final Socket socket;
     private final ClientManager manager;
     private final RoomManager roomManager;
+    private Room currentRoom = null;
     private ObjectOutputStream out;
     private ObjectInputStream in;
     private String username = "Guest";
@@ -89,6 +90,15 @@ public class ClientHandler implements Runnable {
                     List<String> rooms = roomManager.listRooms();
                     sendRequest(new ServerRequest("Available rooms: " + String.join(", ", rooms)));
                 }
+                case "LEAVE_ROOM" -> {
+                    if (currentRoom == null) {
+                        sendRequest(new ServerRequest("You are not in a room."));
+                    } else {
+                        Room room = currentRoom;
+                        roomManager.leaveRoom(this); // removes client from room, handles owner logic
+                        sendRequest(new ServerRequest("You have left the room: " + room.getRoomName()));
+                    }
+                }
                 default -> sendRequest(new ServerRequest("Unknown command: " + command.getCommandType()));
             }
         }
@@ -111,5 +121,13 @@ public class ClientHandler implements Runnable {
         } catch (IOException e) {
             System.out.println("Error closing client " + socket.getInetAddress());
         }
+    }
+
+    public Room getCurrentRoom() {
+        return currentRoom;
+    }
+
+    public void setCurrentRoom(Room room) {
+        this.currentRoom = room;
     }
 }
