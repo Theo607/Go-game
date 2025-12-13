@@ -32,6 +32,23 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    @Override
+    public void run() {
+        try {
+          server.addWaitingPlayer(this);
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+        Object obj;
+        while (connected) {
+            try {
+                obj = in.readObject();
+                if (obj instanceof String) handleMessage((String) obj);
+            } catch (IOException | ClassNotFoundException e) {}
+        }
+        // Further communication handled in GameSession
+    }
+
     public void sendBoard(Board board) {
         try {
             out.writeObject(board);
@@ -50,40 +67,47 @@ public class ClientHandler implements Runnable {
         return null;
     }
 
-    @Override
-    public void run() {
+    public String sendTurn() {
         try {
-          server.addWaitingPlayer(this);
-        } catch (Exception e) {
-          e.printStackTrace();
+            out.writeObject("yourTurn");
+            out.flush();
+            Object obj = in.readObject();
+            if (obj instanceof String) return (String) obj;
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
         }
-        Object obj;
-        while (connected) {
-            try {
-                obj = in.readObject();
-                if (obj instanceof String) handleMessage((String) obj);
-            } catch (IOException | ClassNotFoundException e) {}
+        return null;
+    }
+
+    public void sendWon() {
+        //server.movePlayerBack(this);
+        try {
+            out.writeObject("won");
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        // Further communication handled in GameSession
+    }
+
+    public void sendLost() {
+        try {
+            out.writeObject("lost");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void handleMessage(String command) {
         if (command.equals("pass")) gameSession.pass(this);
         else if (command.equals("resign")) {
             disconnectClient();
-        } else {}
+        } else {
+
+        }
     }
 
     public void disconnectClient() {
         connected = false;
         server.removePlayer(this);
-    }
-
-    public void winner() {
-        server.movePlayerBack(this);
-        try {
-            out.writeObject("won");
-        } catch (IOException e) {}
     }
 
     public void setSession(GameSession session) {
