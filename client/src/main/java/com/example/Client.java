@@ -24,7 +24,7 @@ public class Client{
                 
                 System.out.println("Connected to server as " + USERNAME);
                 do { 
-                    System.out.println("Type your move (row, column), 'pass' or 'resign");
+                    System.out.println("Type your move (row, column), 'pass' or 'resign'");
                 } while (!scanner.nextLine().equals("resign"));
                 System.out.println("Game ended");
                 socket.close();
