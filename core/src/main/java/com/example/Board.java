@@ -42,21 +42,20 @@ public class Board implements Serializable{
         sb.append("   ");
         
         for (int i = 0; i < size; i++) {
-            if (i < 9) sb.append("  ");
-            else sb.append(" ");
+            sb.append(" ");
             sb.append(i+1);
+            if (i<9) sb.append(" ");
         }
         sb.append("\n");
         
         for (int x = 0; x < size; x++) {
+            sb.append(" ");
+            sb.append(x+1);
+            if (x<9) sb.append(" ");
             for (int y = 0; y < size; y++) {
                 
-                InterSec field = getInterSec(x+1, y+1);
-                if (x < 9) sb.append("  ");
-                else sb.append(" ");
-                sb.append(x+1);
-                
-                switch(field) {
+                InterSec cell = getInterSec(x+1, y+1);
+                switch(cell) {
                     case Black:
                         sb.append(" O ");
                         break;
