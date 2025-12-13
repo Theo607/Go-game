@@ -11,3 +11,6 @@ dependencies {
     implementation(project(":core"))
 }
 
+tasks.named<JavaExec>("run") {
+    standardInput = System.`in`
+}
