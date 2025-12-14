@@ -34,22 +34,20 @@ public class RoomManager {
 
     public synchronized void leaveRoom(ClientHandler client) {
         Room room = client.getCurrentRoom();
-        if (room != null) {
-            boolean ifOwner = false;
-            if (room.getOwner() == client) {
-                ifOwner = true;
-            }
-            room.leave(client); // remove player
-            client.setCurrentRoom(null);
+        if (room == null)
+            return;
 
-            // If the owner left, remove the room
-            if (ifOwner) {
-                rooms.remove(room.getRoomId());
-            }
-            // Optionally, if room is empty, also remove
-            else if (room.getPlayers().isEmpty()) {
-                rooms.remove(room.getRoomId());
-            }
+        room.leave(client); // remove player
+        client.setCurrentRoom(null);
+
+        if (room.getPlayers().isEmpty()) {
+            // No players left → remove room
+            rooms.remove(room.getRoomId());
+        } else if (room.getOwner() == client) {
+            // Owner left → transfer ownership to the first remaining player
+            ClientHandler newOwner = room.getPlayers().get(0);
+            room.setOwner(newOwner); // Need to add setter in Room class
+            room.broadcast(new ServerRequest("NEW_OWNER", newOwner.getUsername()));
         }
     }
 

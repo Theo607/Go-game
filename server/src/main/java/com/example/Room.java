@@ -8,7 +8,7 @@ import java.util.Map;
 public class Room {
     private final String roomId;
     private final String roomName;
-    private final ClientHandler owner;
+    private ClientHandler owner;
     private final List<ClientHandler> players;
     private boolean started = false;
     private final int MAX_PLAYERS = 2;
@@ -127,6 +127,10 @@ public class Room {
 
     public synchronized void clearColorChangeRequest() {
         colorChangeRequester = null;
+    }
+
+    public synchronized void setOwner(ClientHandler newOwner) {
+        this.owner = newOwner;
     }
 
 }

@@ -1,13 +1,14 @@
 package com.example;
+
 import java.io.ObjectInputStream;
 
 public class ClientListener implements Runnable {
     private final ObjectInputStream in;
-    private final Client client;
+    private final ClientRequestHandler requestHandler;
 
-    public ClientListener(ObjectInputStream in, Client client) {
+    public ClientListener(ObjectInputStream in, ClientRequestHandler requestHandler) {
         this.in = in;
-        this.client = client;
+        this.requestHandler = requestHandler;
     }
 
     @Override
@@ -15,9 +16,8 @@ public class ClientListener implements Runnable {
         try {
             while (true) {
                 Object obj = in.readObject();
-
                 if (obj instanceof ServerRequest request) {
-                    client.handleServerRequest(request);
+                    requestHandler.handleRequest(request);
                 }
             }
         } catch (Exception e) {
