@@ -33,4 +33,5 @@ public class ClientCommandSender {
     public void sendPass() { sendCommand("PASS"); }
     public void sendResign() { sendCommand("RESIGN"); }
     public void sendStart() { sendCommand("START"); }
+    public void sendBegin() { sendCommand("BEGIN"); }
 }

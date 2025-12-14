@@ -9,17 +9,43 @@ public class Room {
     private final String roomId;
     private final String roomName;
     private ClientHandler owner;
-    private final List<ClientHandler> players;
+    private final List<ClientHandler> players = new ArrayList<>();
     private boolean started = false;
-    private final int MAX_PLAYERS = 2;
     private final Map<ClientHandler, Color> colors = new HashMap<>();
     private ClientHandler colorChangeRequester = null;
+
+    private GameLogic gameLogic; // Holds the board and rules
 
     public Room(String roomId, String roomName, ClientHandler owner) {
         this.roomId = roomId;
         this.roomName = roomName;
         this.owner = owner;
-        this.players = new ArrayList<>();
+    }
+
+    public synchronized void start() {
+        if (!started && players.size() == 2) {
+            started = true;
+        }
+    }
+
+    public boolean isStarted() {
+        return started;
+    }
+
+    public List<ClientHandler> getPlayers() {
+        return players;
+    }
+
+    public ClientHandler getOwner() {
+        return owner;
+    }
+
+    public boolean isOwner(ClientHandler client) {
+        return owner == client;
+    }
+
+    public void setOwner(ClientHandler newOwner) {
+        this.owner = newOwner;
     }
 
     public synchronized Color getColor(ClientHandler player) {
@@ -29,19 +55,18 @@ public class Room {
     public synchronized boolean pickColor(ClientHandler player, Color color) {
         if (started)
             return false;
-        if (colors.get(player) != Color.NONE)
+        if (colors.get(player) != null && colors.get(player) != Color.NONE)
             return false;
 
         if (colors.containsValue(color))
-            return false; // already taken
+            return false;
 
         colors.put(player, color);
 
-        // Assign remaining color to other player
+        // assign remaining color to other player
         for (ClientHandler p : players) {
-            if (p != player) {
+            if (p != player)
                 colors.put(p, color == Color.BLACK ? Color.WHITE : Color.BLACK);
-            }
         }
         return true;
     }
@@ -50,41 +75,30 @@ public class Room {
         return colors.values().stream().noneMatch(c -> c == Color.NONE);
     }
 
+    public synchronized void broadcast(ServerRequest request) {
+        for (ClientHandler player : players)
+            player.sendRequest(request);
+    }
+
+    public synchronized GameLogic getGameLogic() {
+        return gameLogic;
+    }
+
     public synchronized boolean join(ClientHandler client) {
-        colors.put(client, Color.NONE);
-        if (players.size() >= MAX_PLAYERS || started)
-            return false;
-        players.add(client);
-        return true;
+        if (players.size() < 2) {
+            players.add(client);
+            colors.put(client, Color.NONE);
+            return true;
+        }
+        return false;
     }
 
     public synchronized void leave(ClientHandler client) {
         players.remove(client);
-        if (client.getCurrentRoom() == this) {
-            client.setCurrentRoom(null);
+        colors.remove(client);
+        if (client == owner && !players.isEmpty()) {
+            owner = players.get(0);
         }
-    }
-
-    public synchronized void start() {
-        if (!started && players.size() == MAX_PLAYERS) {
-            started = true;
-        }
-    }
-
-    public synchronized void broadcast(ServerRequest request) {
-        for (ClientHandler player : players) {
-            player.sendRequest(request);
-        }
-    }
-
-    public synchronized List<String> getPlayerNames() {
-        return players.stream()
-                .map(ClientHandler::getUsername)
-                .toList();
-    }
-
-    public synchronized boolean canRespondToColorChange(ClientHandler player) {
-        return colorChangeRequester != null && player != colorChangeRequester;
     }
 
     public String getRoomId() {
@@ -95,28 +109,7 @@ public class Room {
         return roomName;
     }
 
-    public ClientHandler getOwner() {
-        return owner;
-    }
-
-    public boolean isStarted() {
-        return started;
-    }
-
-    public boolean isOwner(ClientHandler client) {
-        return owner == client;
-    }
-
-    public List<ClientHandler> getPlayers() {
-        return players;
-    }
-
-    public synchronized void swapColors(ClientHandler a, ClientHandler b) {
-        Color temp = colors.get(a);
-        colors.put(a, colors.get(b));
-        colors.put(b, temp);
-    }
-
+    // Color change methods
     public synchronized void setColorChangeRequester(ClientHandler client) {
         colorChangeRequester = client;
     }
@@ -129,8 +122,14 @@ public class Room {
         colorChangeRequester = null;
     }
 
-    public synchronized void setOwner(ClientHandler newOwner) {
-        this.owner = newOwner;
+    public synchronized boolean canRespondToColorChange(ClientHandler player) {
+        return colorChangeRequester != null && player != colorChangeRequester;
+    }
+
+    public synchronized void swapColors(ClientHandler a, ClientHandler b) {
+        Color temp = colors.get(a);
+        colors.put(a, colors.get(b));
+        colors.put(b, temp);
     }
 
 }

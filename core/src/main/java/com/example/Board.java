@@ -79,4 +79,8 @@ public class Board implements Serializable{
 
       return sb.toString();
   }
+
+    public int getSize() {
+        return size;
+    }
 }

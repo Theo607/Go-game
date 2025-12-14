@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class ClientHandler implements Runnable {
     private final Socket socket;
@@ -12,9 +14,11 @@ public class ClientHandler implements Runnable {
 
     private ObjectOutputStream out;
     private ObjectInputStream in;
+
     private String username = "Guest";
     private Room currentRoom = null;
-    private PlayerAction latestAction = null;
+
+    private final BlockingQueue<PlayerAction> actionQueue = new LinkedBlockingQueue<>();
 
     private final ClientCommandProcessor commandProcessor;
 
@@ -52,16 +56,21 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    public synchronized void setLatestAction(PlayerAction action) {
-        this.latestAction = action;
-        notifyAll();
+    /* =========================
+       Player action handling
+       ========================= */
+
+    public void submitAction(PlayerAction action) {
+        actionQueue.offer(action);
     }
 
-    public synchronized PlayerAction consumeLatestAction() {
-        PlayerAction action = latestAction;
-        latestAction = null;
-        return action;
+    public PlayerAction waitForAction() throws InterruptedException {
+        return actionQueue.take(); // blocks safely
     }
+
+    /* =========================
+       Networking
+       ========================= */
 
     public void sendRequest(ServerRequest request) {
         try {
@@ -82,10 +91,15 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    // Getters and setters
+    /* =========================
+       Getters / setters
+       ========================= */
+
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
+
     public Room getCurrentRoom() { return currentRoom; }
     public void setCurrentRoom(Room room) { this.currentRoom = room; }
+
     public RoomManager getRoomManager() { return roomManager; }
 }

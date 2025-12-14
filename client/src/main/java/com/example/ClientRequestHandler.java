@@ -52,8 +52,6 @@ public class ClientRequestHandler {
 
             case "GAME_STARTED" -> {
                 client.printStr("Game started!");
-                client.printStr("You are playing " + params[0] + ".");
-                client.printStr(params[1]); // initial board state
             }
 
             case "BOARD_UPDATE" -> {

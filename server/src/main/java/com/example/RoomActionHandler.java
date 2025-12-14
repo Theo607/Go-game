@@ -21,7 +21,11 @@ public class RoomActionHandler {
     }
 
     public void handleCommand(ClientCommand command) {
-        switch (command.getCommandType()) {
+        // Normalize: trim and uppercase
+        String cmdType = command.getCommandType().trim().toUpperCase();
+
+        switch (cmdType) {
+            case "BEGIN" -> handleBeginGame();
             case "CREATE_ROOM" -> handleCreateRoom(command);
             case "JOIN_ROOM" -> handleJoinRoom(command);
             case "LEAVE_ROOM" -> handleLeaveRoom();
@@ -34,8 +38,41 @@ public class RoomActionHandler {
         }
     }
 
+    private void handleBeginGame() {
+        Room room = client.getCurrentRoom();
+        if (room == null) {
+            client.sendRequest(new ServerRequest("ERROR", "You are not in a room."));
+            return;
+        }
+
+        if (!room.isOwner(client)) {
+            client.sendRequest(new ServerRequest("ERROR", "Only the room owner can start the game."));
+            return;
+        }
+
+        if (!room.colorsChosen()) {
+            client.sendRequest(new ServerRequest("ERROR", "Both players must pick colors before starting."));
+            return;
+        }
+
+        if (room.isStarted()) {
+            client.sendRequest(new ServerRequest("ERROR", "Game has already started."));
+            return;
+        }
+
+        // Mark the room as started
+        room.start();// you might need to add a setter for this in Room
+
+        room.broadcast(new ServerRequest("GAME_STARTED"));
+
+        // Start a new game session thread
+        GameSession session = new GameSession(room);
+        new Thread(session).start();
+    }
+
     private void handleCreateRoom(ClientCommand command) {
-        if (!checkUsernameSet()) return;
+        if (!checkUsernameSet())
+            return;
         if (command.getParameters().length >= 1) {
             String roomName = command.getParameters()[0];
             Room room = client.getCurrentRoom() != null ? client.getCurrentRoom()
@@ -48,7 +85,8 @@ public class RoomActionHandler {
     }
 
     private void handleJoinRoom(ClientCommand command) {
-        if (!checkUsernameSet()) return;
+        if (!checkUsernameSet())
+            return;
         if (command.getParameters().length == 0) {
             client.sendRequest(new ServerRequest("USAGE", "JOIN_ROOM <roomId>"));
             return;

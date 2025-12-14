@@ -19,26 +19,34 @@ public class ConsoleInputHandler {
     private void initCommands() {
         // Room and username commands
         commandMap.put("setname", args -> {
-            if (args.length >= 1) commandSender.sendSetUsername(args[0]);
-            else client.printStr("Usage: setname <username>");
+            if (args.length >= 1)
+                commandSender.sendSetUsername(args[0]);
+            else
+                client.printStr("Usage: setname <username>");
         });
 
         commandMap.put("create", args -> {
-            if (args.length >= 1) commandSender.sendCreateRoom(args[0]);
-            else client.printStr("Usage: create <roomName>");
+            if (args.length >= 1)
+                commandSender.sendCreateRoom(args[0]);
+            else
+                client.printStr("Usage: create <roomName>");
         });
 
         commandMap.put("join", args -> {
-            if (args.length >= 1) commandSender.sendJoinRoom(args[0]);
-            else client.printStr("Usage: join <roomId>");
+            if (args.length >= 1)
+                commandSender.sendJoinRoom(args[0]);
+            else
+                client.printStr("Usage: join <roomId>");
         });
 
         commandMap.put("leave", args -> commandSender.sendLeaveRoom());
         commandMap.put("list", args -> commandSender.sendListRooms());
         commandMap.put("start", args -> commandSender.sendStart());
         commandMap.put("pick", args -> {
-            if (args.length >= 1) commandSender.sendPickColor(args[0].toUpperCase());
-            else client.printStr("Usage: pick BLACK|WHITE");
+            if (args.length >= 1)
+                commandSender.sendPickColor(args[0].toUpperCase());
+            else
+                client.printStr("Usage: pick BLACK|WHITE");
         });
 
         // Color change commands
@@ -63,6 +71,8 @@ public class ConsoleInputHandler {
 
         commandMap.put("pass", args -> commandSender.sendPass());
         commandMap.put("resign", args -> commandSender.sendResign());
+        commandMap.put("start", args -> commandSender.sendStart());
+        commandMap.put("begin", args -> commandSender.sendBegin());
 
         // Quit
         commandMap.put("quit", args -> {
@@ -72,26 +82,45 @@ public class ConsoleInputHandler {
     }
 
     public void runInputLoop() {
-        Scanner scanner = new Scanner(System.in);
-        client.printStr("Enter commands: setname <name>, create <roomName>, join <roomId>, list, move <x> <y>, pass, resign, quit");
+        client.printStr("""
+                Enter commands:
+                  setname <name>       - Set your username before joining or creating rooms
+                  create <roomName>    - Create a new room (requires username)
+                  join <roomId>        - Join an existing room (requires username)
+                  leave                - Leave your current room
+                  list                 - List all rooms or players in your current room
+                  pick <BLACK|WHITE>   - Choose your color in the room
+                  swap                 - Request to swap colors with the other player
+                  accept               - Accept a pending color swap request
+                  decline              - Decline a pending color swap request
+                  start                - Start the game (room owner only)
+                  move <x> <y>         - Make a move on the board
+                  pass                 - Pass your turn
+                  resign               - Resign from the game
+                  quit                 - Exit the client
+                """);
 
-        while (client.isRunning()) {
-            String input = scanner.nextLine().trim();
-            if (input.isEmpty()) continue;
+        try (Scanner scanner = new Scanner(System.in)) { // <-- scanner auto-closed
+            while (client.isRunning()) {
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty())
+                    continue;
 
-            String[] parts = input.split("\\s+");
-            String cmd = parts[0].toLowerCase();
-            String[] args = new String[parts.length - 1];
-            System.arraycopy(parts, 1, args, 0, args.length);
+                String[] parts = input.split("\\s+");
+                String cmd = parts[0].toLowerCase();
+                String[] args = new String[parts.length - 1];
+                System.arraycopy(parts, 1, args, 0, args.length);
 
-            Command command = commandMap.get(cmd);
-            if (command != null) {
-                command.execute(args);
-            } else {
-                client.printStr("Unknown command: " + cmd);
+                Command command = commandMap.get(cmd);
+                if (command != null) {
+                    command.execute(args);
+                } else {
+                    client.printStr("Unknown command: " + cmd);
+                }
+
+                if ("quit".equals(cmd))
+                    break; // stop loop after quit
             }
-
-            if ("quit".equals(cmd)) break; // stop loop after quit
         }
     }
 

@@ -22,7 +22,7 @@ public class ClientCommandProcessor {
                 }
             }
             case "CREATE_ROOM", "JOIN_ROOM", "LEAVE_ROOM", "LIST_ROOMS",
-                 "PICK_COLOR", "REQUEST_COLOR_CHANGE", "ACCEPT_COLOR_CHANGE", "DECLINE_COLOR_CHANGE" ->
+                 "PICK_COLOR", "REQUEST_COLOR_CHANGE", "ACCEPT_COLOR_CHANGE", "DECLINE_COLOR_CHANGE", "BEGIN" ->
                     roomHandler.handleCommand(command);
 
             case "MOVE", "PASS", "RESIGN" ->
