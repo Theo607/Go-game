@@ -54,8 +54,8 @@ public class Board implements Serializable{
 
               char c;
               switch (field) {
-                  case Color.BLACK -> c = 'O';
-                  case Color.WHITE -> c = 'X';
+                  case Color.BLACK -> c = 'X';
+                  case Color.WHITE -> c = 'O';
                   default -> c = '+';
               }
 
