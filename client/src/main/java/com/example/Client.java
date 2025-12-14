@@ -65,7 +65,7 @@ public class Client {
 
     private void handleConsoleInput() {
         Scanner scanner = new Scanner(System.in);
-        printStr("Enter commands: setname <name>, create <roomId> <roomName>, join <roomId>, list, quit");
+        printStr("Enter commands: setname <name>, create <roomName>, join <roomId>, list, quit");
 
         while (true) {
             String input = scanner.nextLine().trim();
@@ -96,6 +96,16 @@ public class Client {
                 }
                 case "leave" -> sendCommand("LEAVE_ROOM");
                 case "list" -> sendCommand("LIST_ROOMS");
+                case "start" -> sendCommand("START");
+                case "pick" -> {
+                    if (parts.length >= 2)
+                        sendCommand("PICK_COLOR", parts[1].toUpperCase());
+                    else
+                        printStr("Usage: pick BLACK|WHITE");
+                }
+                case "swap" -> sendCommand("REQUEST_COLOR_CHANGE");
+                case "accept" -> sendCommand("ACCEPT_COLOR_CHANGE");
+                case "decline" -> sendCommand("DECLINE_COLOR_CHANGE");
                 case "quit" -> {
                     printStr("Exiting...");
                     kill();

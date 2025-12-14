@@ -65,12 +65,10 @@ public class ClientHandler implements Runnable {
                     if (command.getParameters().length >= 1) {
                         String roomName = command.getParameters()[0];
                         Room room = roomManager.createRoom(roomName, this);
-                        if (room != null) {
-                            sendRequest(new ServerRequest(
-                                    "Room created: " + room.getRoomName() + " (ID: " + room.getRoomId() + ")"));
-                        } else {
-                            sendRequest(new ServerRequest("Room creation failed."));
-                        }
+                        roomManager.joinRoom(room.getRoomId(), this);
+                        sendRequest(new ServerRequest(
+                                "Room created: " + room.getRoomName() + " (ID: " + room.getRoomId() + ")"));
+
                     } else {
                         sendRequest(new ServerRequest("Usage: CREATE_ROOM <roomName>"));
                     }
@@ -87,8 +85,97 @@ public class ClientHandler implements Runnable {
                     }
                 }
                 case "LIST_ROOMS" -> {
-                    List<String> rooms = roomManager.listRooms();
-                    sendRequest(new ServerRequest("Available rooms: " + String.join(", ", rooms)));
+                    if (currentRoom != null) {
+                        // Player is in a room → list players
+                        List<String> players = currentRoom.getPlayerNames();
+                        sendRequest(new ServerRequest(
+                                "Players in room '" + currentRoom.getRoomName() + "': " +
+                                        String.join(", ", players)));
+                    } else {
+                        // Player not in a room → list rooms
+                        List<String> rooms = roomManager.listRooms();
+                        if (rooms.isEmpty()) {
+                            sendRequest(new ServerRequest("No rooms available."));
+                        } else {
+                            sendRequest(new ServerRequest(
+                                    "Available rooms:\n" + String.join("\n", rooms)));
+                        }
+                    }
+                }
+                case "START" -> {
+                    if (currentRoom == null) {
+                        sendRequest(new ServerRequest("You are not in a room."));
+                        break;
+                    }
+
+                    if (!currentRoom.isOwner(this)) {
+                        sendRequest(new ServerRequest("Only the owner can start the game."));
+                        break;
+                    }
+
+                    if (!currentRoom.colorsChosen()) {
+                        sendRequest(new ServerRequest("Both players must pick colors first."));
+                        break;
+                    }
+
+                    // currentRoom.start(null); // GameSession created later
+                    // currentRoom.broadcast(new ServerRequest("Game started."));
+                }
+                case "PICK_COLOR" -> {
+                    if (currentRoom == null) {
+                        sendRequest(new ServerRequest("You are not in a room."));
+                        break;
+                    }
+
+                    if (currentRoom.isStarted()) {
+                        sendRequest(new ServerRequest("Game already started."));
+                        break;
+                    }
+
+                    Color color;
+                    try {
+                        color = Color.valueOf(command.getParameters()[0]);
+                    } catch (Exception e) {
+                        sendRequest(new ServerRequest("Invalid color."));
+                        break;
+                    }
+
+                    boolean success = currentRoom.pickColor(this, color);
+                    if (!success) {
+                        sendRequest(new ServerRequest("Color unavailable."));
+                        break;
+                    }
+
+                    currentRoom.broadcast(new ServerRequest(
+                            getUsername() + " picked " + color));
+                }
+                case "REQUEST_COLOR_CHANGE" -> {
+                    if (currentRoom == null || currentRoom.isStarted()) {
+                        sendRequest(new ServerRequest("Cannot change colors now."));
+                        break;
+                    }
+
+                    currentRoom.setColorChangeRequester(this);
+                    currentRoom.broadcast(new ServerRequest(
+                            getUsername()
+                                    + " wants to swap colors. Type accept or decline."));
+                }
+                case "ACCEPT_COLOR_CHANGE" -> {
+                    if (currentRoom == null || !currentRoom.canRespondToColorChange(this)) {
+                        sendRequest(new ServerRequest("You cannot accept a color change request."));
+                        break;
+                    }
+
+                    ClientHandler requester = currentRoom.getColorChangeRequester();
+                    currentRoom.swapColors(requester, this);
+                    currentRoom.clearColorChangeRequest();
+                    currentRoom.broadcast(new ServerRequest("Colors swapped."));
+                }
+                case "DECLINE_COLOR_CHANGE" -> {
+                    if (currentRoom != null) {
+                        currentRoom.clearColorChangeRequest();
+                        currentRoom.broadcast(new ServerRequest("Color change declined."));
+                    }
                 }
                 case "LEAVE_ROOM" -> {
                     if (currentRoom == null) {
