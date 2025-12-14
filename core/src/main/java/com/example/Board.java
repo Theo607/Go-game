@@ -26,14 +26,14 @@ public class Board implements Serializable{
         if (inBound(row) && inBound(column)) {
             return field[row - 1][column - 1];
         }
-        throw new IndexOutOfBoundsException("Coordinates out of bounds: row=" + row + ", column=" + column);
+        throw new IndexOutOfBoundsException("Coordinates out of bounds: row = " + row + ", column = " + column);
     }
 
     public void setInterSec(int row, int column, Color state) {
         if (inBound(row) && inBound(column)) {
             field[row - 1][column - 1] = state;
         } else {
-            throw new IndexOutOfBoundsException("Coordinates out of bounds: row=" + row + ", column=" + column);
+            throw new IndexOutOfBoundsException("Coordinates out of bounds: row = " + row + ", column = " + column);
         }
     }
 

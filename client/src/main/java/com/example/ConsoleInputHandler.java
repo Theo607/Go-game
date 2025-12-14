@@ -41,7 +41,7 @@ public class ConsoleInputHandler {
 
         commandMap.put("leave", args -> commandSender.sendLeaveRoom());
         commandMap.put("list", args -> commandSender.sendListRooms());
-        commandMap.put("start", args -> commandSender.sendStart());
+        commandMap.put("begin", args -> commandSender.sendStart());
         commandMap.put("pick", args -> {
             if (args.length >= 1)
                 commandSender.sendPickColor(args[0].toUpperCase());
@@ -93,7 +93,7 @@ public class ConsoleInputHandler {
                   swap                 - Request to swap colors with the other player
                   accept               - Accept a pending color swap request
                   decline              - Decline a pending color swap request
-                  start                - Start the game (room owner only)
+                  begin                - Start the game (room owner only)
                   move <x> <y>         - Make a move on the board
                   pass                 - Pass your turn
                   resign               - Resign from the game
