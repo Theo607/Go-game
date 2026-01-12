@@ -4,16 +4,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 
-public class ConsoleInputHandler {
-    private final ClientCommandSender commandSender;
-    private final Client client;
+public class ConsoleInputHandler extends InputHandler {
 
     private final Map<String, Command> commandMap = new HashMap<>();
-
     public ConsoleInputHandler(ClientCommandSender commandSender, Client client) {
-        this.commandSender = commandSender;
-        this.client = client;
+        super(commandSender, client);
         initCommands();
+    }
+
+    @Override
+    public void handleServerMessage(String message) {
+        client.printStr(message);
     }
 
     private void initCommands() {
@@ -81,6 +82,7 @@ public class ConsoleInputHandler {
         });
     }
 
+    @Override
     public void runInputLoop() {
         client.printStr("""
                 Enter commands:

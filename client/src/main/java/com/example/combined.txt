@@ -1,0 +1,579 @@
+package com.example;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+
+public class Client {
+    private static final String HOST = "localhost";
+    private static final int PORT = 1664;
+
+    private Socket socket;
+    private ObjectOutputStream out;
+    private ObjectInputStream in;
+    private boolean running = true;
+
+    private ClientCommandSender commandSender;
+    private ClientRequestHandler requestHandler;
+    private InputHandler inputHandler;
+
+    public InputHandler getInputHandler() {
+        return inputHandler;
+    }
+
+    public ClientCommandSender getCommandSender() {
+        return commandSender;
+    }
+
+    public void start(String inputHandlerFlag) {
+        try {
+            socket = new Socket(HOST, PORT);
+            out = new ObjectOutputStream(socket.getOutputStream());
+            in = new ObjectInputStream(socket.getInputStream());
+
+            commandSender = new ClientCommandSender(out);
+            requestHandler = new ClientRequestHandler(this);
+
+            // choose input handler
+            switch (inputHandlerFlag) {
+                case "gui" -> inputHandler = new GuiInputHandler(commandSender, this);
+                case "console" -> inputHandler = new ConsoleInputHandler(commandSender, this);
+                default -> inputHandler = new ConsoleInputHandler(commandSender, this);
+            }
+
+            // start listener thread
+            Thread listenerThread = new Thread(new ClientListener(in, requestHandler));
+            listenerThread.start();
+
+            // run input handler
+            inputHandler.runInputLoop();
+
+            // main loop keeps client alive
+            while (running) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+
+        } catch (IOException e) {
+            System.out.println("Unable to connect to server.");
+        } finally {
+            kill();
+        }
+    }
+
+    public void printStr(String message) {
+        System.out.println(message);
+    }
+
+    public void kill() {
+        running = false;
+        try {
+            if (in != null) in.close();
+            if (out != null) out.close();
+            if (socket != null) socket.close();
+        } catch (IOException ignored) {}
+    }
+
+    public boolean isRunning() {
+        return running;
+    }
+
+    public static void main(String[] args) {
+        String mode = args.length > 0 ? args[0] : "console";
+        new Client().start(mode);
+    }
+}
+
+package com.example;
+
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+
+public class ClientCommandSender {
+    private final ObjectOutputStream out;
+
+    public ClientCommandSender(ObjectOutputStream out) {
+        this.out = out;
+    }
+
+    public void sendCommand(String commandType, String... params) {
+        try {
+            out.writeObject(new ClientCommand(commandType, params));
+            out.flush();
+        } catch (IOException e) {
+            System.out.println("Failed to send command: " + commandType);
+        }
+    }
+
+    // Convenience methods
+    public void sendSetUsername(String name) { sendCommand("SET_USERNAME", name); }
+    public void sendCreateRoom(String roomName) { sendCommand("CREATE_ROOM", roomName); }
+    public void sendJoinRoom(String roomId) { sendCommand("JOIN_ROOM", roomId); }
+    public void sendLeaveRoom() { sendCommand("LEAVE_ROOM"); }
+    public void sendListRooms() { sendCommand("LIST_ROOMS"); }
+    public void sendPickColor(String color) { sendCommand("PICK_COLOR", color); }
+    public void sendRequestColorChange() { sendCommand("REQUEST_COLOR_CHANGE"); }
+    public void sendAcceptColorChange() { sendCommand("ACCEPT_COLOR_CHANGE"); }
+    public void sendDeclineColorChange() { sendCommand("DECLINE_COLOR_CHANGE"); }
+    public void sendMove(int x, int y) { sendCommand("MOVE", String.valueOf(x), String.valueOf(y)); }
+    public void sendPass() { sendCommand("PASS"); }
+    public void sendResign() { sendCommand("RESIGN"); }
+    public void sendStart() { sendCommand("START"); }
+    public void sendBegin() { sendCommand("BEGIN"); }
+}
+package com.example;
+
+import java.io.ObjectInputStream;
+
+public class ClientListener implements Runnable {
+    private final ObjectInputStream in;
+    private final ClientRequestHandler requestHandler;
+
+    public ClientListener(ObjectInputStream in, ClientRequestHandler requestHandler) {
+        this.in = in;
+        this.requestHandler = requestHandler;
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (true) {
+                Object obj = in.readObject();
+                if (obj instanceof ServerRequest request) {
+                    requestHandler.handleRequest(request);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Server connection lost.");
+        }
+    }
+}
+package com.example;
+
+import java.util.Arrays;
+
+public class ClientRequestHandler {
+    private final Client client;
+
+    public ClientRequestHandler(Client client) {
+        this.client = client;
+    }
+
+    public void handleRequest(ServerRequest request) {
+        String type = request.getType();
+        String[] params = request.getParameters();
+
+        switch (type) {
+            case "USERNAME_SET" -> client.printStr("Your username is now: " + params[0]);
+
+            case "ROOM_CREATED" ->
+                client.printStr("Room created: " + params[0] + " (ID: " + params[1] + ")");
+
+            case "JOINED_ROOM" ->
+                client.printStr("Successfully joined room: " + params[0]);
+
+            case "JOIN_ROOM_FAILED" ->
+                client.printStr("Failed to join room: " + params[0]);
+
+            case "LEFT_ROOM" ->
+                client.printStr("You left the room: " + params[0]);
+
+            case "AVAILABLE_ROOMS" -> {
+                client.printStr("Rooms available:");
+                Arrays.stream(params).forEach(client::printStr);
+            }
+
+            case "NO_ROOMS_AVAILABLE" -> client.printStr("No rooms available.");
+
+            case "ROOM_PLAYERS" -> {
+                client.printStr("Players in your room:");
+                Arrays.stream(params).forEach(client::printStr);
+            }
+
+            case "COLOR_PICKED" ->
+                client.printStr(params[0] + " picked " + params[1] + " pieces.");
+
+            case "COLOR_CHANGE_REQUEST" ->
+                client.printStr(params[0] + " wants to swap colors. Type 'accept' or 'decline'.");
+
+            case "COLORS_SWAPPED" -> client.printStr("Colors have been swapped.");
+
+            case "COLOR_CHANGE_DECLINED" -> client.printStr("Color change was declined.");
+
+            case "GAME_STARTED" -> {
+                client.printStr("Game started!");
+            }
+
+            case "BOARD_UPDATE" -> {
+                client.printStr("Board updated:");
+                client.printStr(params[0]); // board string
+            }
+
+            case "YOUR_TURN" -> {
+                client.printStr("It's your turn (" + params[0] + "). Make a move: move <x> <y>, pass, or resign.");
+            }
+
+            case "OPPONENT_TURN" -> {
+                client.printStr("Waiting for opponent's turn (" + params[0] + ")...");
+            }
+
+            case "MOVE_MADE" -> client.printStr(params[0] + " played at (" + params[1] + ", " + params[2] + ").");
+
+            case "PLAYER_PASSED" -> client.printStr(params[0] + " passed their turn.");
+
+            case "PLAYER_RESIGNED" -> client.printStr(params[0] + " resigned. Game over.");
+
+            case "GAME_OVER" -> {
+                client.printStr("Game over!");
+                if (params.length > 0) client.printStr("Winner: " + params[0]);
+            }
+
+            case "INVALID_MOVE" -> client.printStr("Invalid move: " + params[0]);
+
+            default -> {
+                client.printStr("Server message (" + type + "): " + String.join(", ", params));
+            }
+        }
+        if (client.getInputHandler() instanceof GuiInputHandler gui) {
+            gui.handleServerMessage(type + ": " + Arrays.toString(params));
+        }
+    }
+}
+package com.example;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
+
+public class ConsoleInputHandler extends InputHandler {
+
+    private final Map<String, Command> commandMap = new HashMap<>();
+    public ConsoleInputHandler(ClientCommandSender commandSender, Client client) {
+        super(commandSender, client);
+        initCommands();
+    }
+
+    @Override
+    public void handleServerMessage(String message) {
+        client.printStr(message);
+    }
+
+    private void initCommands() {
+        // Room and username commands
+        commandMap.put("setname", args -> {
+            if (args.length >= 1)
+                commandSender.sendSetUsername(args[0]);
+            else
+                client.printStr("Usage: setname <username>");
+        });
+
+        commandMap.put("create", args -> {
+            if (args.length >= 1)
+                commandSender.sendCreateRoom(args[0]);
+            else
+                client.printStr("Usage: create <roomName>");
+        });
+
+        commandMap.put("join", args -> {
+            if (args.length >= 1)
+                commandSender.sendJoinRoom(args[0]);
+            else
+                client.printStr("Usage: join <roomId>");
+        });
+
+        commandMap.put("leave", args -> commandSender.sendLeaveRoom());
+        commandMap.put("list", args -> commandSender.sendListRooms());
+        commandMap.put("begin", args -> commandSender.sendStart());
+        commandMap.put("pick", args -> {
+            if (args.length >= 1)
+                commandSender.sendPickColor(args[0].toUpperCase());
+            else
+                client.printStr("Usage: pick BLACK|WHITE");
+        });
+
+        // Color change commands
+        commandMap.put("swap", args -> commandSender.sendRequestColorChange());
+        commandMap.put("accept", args -> commandSender.sendAcceptColorChange());
+        commandMap.put("decline", args -> commandSender.sendDeclineColorChange());
+
+        // Game commands
+        commandMap.put("move", args -> {
+            if (args.length >= 2) {
+                try {
+                    int x = Integer.parseInt(args[0]);
+                    int y = Integer.parseInt(args[1]);
+                    commandSender.sendMove(x, y);
+                } catch (NumberFormatException e) {
+                    client.printStr("Invalid coordinates.");
+                }
+            } else {
+                client.printStr("Usage: move <x> <y>");
+            }
+        });
+
+        commandMap.put("pass", args -> commandSender.sendPass());
+        commandMap.put("resign", args -> commandSender.sendResign());
+        commandMap.put("start", args -> commandSender.sendStart());
+        commandMap.put("begin", args -> commandSender.sendBegin());
+
+        // Quit
+        commandMap.put("quit", args -> {
+            client.printStr("Exiting...");
+            client.kill();
+        });
+    }
+
+    @Override
+    public void runInputLoop() {
+        client.printStr("""
+                Enter commands:
+                  setname <name>       - Set your username before joining or creating rooms
+                  create <roomName>    - Create a new room (requires username)
+                  join <roomId>        - Join an existing room (requires username)
+                  leave                - Leave your current room
+                  list                 - List all rooms or players in your current room
+                  pick <BLACK|WHITE>   - Choose your color in the room
+                  swap                 - Request to swap colors with the other player
+                  accept               - Accept a pending color swap request
+                  decline              - Decline a pending color swap request
+                  begin                - Start the game (room owner only)
+                  move <x> <y>         - Make a move on the board
+                  pass                 - Pass your turn
+                  resign               - Resign from the game
+                  quit                 - Exit the client
+                """);
+
+        try (Scanner scanner = new Scanner(System.in)) { // <-- scanner auto-closed
+            while (client.isRunning()) {
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty())
+                    continue;
+
+                String[] parts = input.split("\\s+");
+                String cmd = parts[0].toLowerCase();
+                String[] args = new String[parts.length - 1];
+                System.arraycopy(parts, 1, args, 0, args.length);
+
+                Command command = commandMap.get(cmd);
+                if (command != null) {
+                    command.execute(args);
+                } else {
+                    client.printStr("Unknown command: " + cmd);
+                }
+
+                if ("quit".equals(cmd))
+                    break; // stop loop after quit
+            }
+        }
+    }
+
+    // Functional interface for commands
+    @FunctionalInterface
+    private interface Command {
+        void execute(String[] args);
+    }
+}
+package com.example;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.Arrays;
+
+public class GuiInputHandler extends InputHandler {
+    private final ClientCommandSender commandSender;
+    private final Client client;
+
+    private JFrame frame;
+    private JTextArea messageArea;
+    private JTextField inputField;
+    private JButton sendButton;
+
+    private JPanel roomPanel;
+    private JButton createRoomButton, joinRoomButton, leaveRoomButton, listRoomsButton;
+    private JTextField roomNameField, roomIdField;
+
+    private JPanel gamePanel;
+    private JButton pickBlackButton, pickWhiteButton, requestSwapButton, acceptSwapButton, declineSwapButton;
+    private JButton beginButton, passButton, resignButton, moveButton;
+    private JTextField moveXField, moveYField;
+
+    public GuiInputHandler(ClientCommandSender sender, Client client) {
+        super(sender, client);
+        SwingUtilities.invokeLater(this::createGui);
+    }
+
+    @Override
+    public void handleServerMessage(String message){}
+
+    private void createGui() {
+        frame = new JFrame("Go Game Client - " + client.getInputHandler().getClass().getSimpleName());
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(800, 600);
+
+        Container content = frame.getContentPane();
+        content.setLayout(new BorderLayout());
+
+        messageArea = new JTextArea();
+        messageArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(messageArea);
+        content.add(scrollPane, BorderLayout.CENTER);
+
+        inputField = new JTextField();
+        sendButton = new JButton("Send");
+        JPanel inputPanel = new JPanel(new BorderLayout());
+        inputPanel.add(inputField, BorderLayout.CENTER);
+        inputPanel.add(sendButton, BorderLayout.EAST);
+        content.add(inputPanel, BorderLayout.SOUTH);
+
+        sendButton.addActionListener(e -> sendCommand());
+        inputField.addActionListener(e -> sendCommand());
+
+        setupRoomPanel();
+        setupGamePanel();
+
+        frame.setVisible(true);
+    }
+
+    private void setupRoomPanel() {
+        roomPanel = new JPanel();
+        roomPanel.setLayout(new GridLayout(3, 3));
+
+        roomNameField = new JTextField();
+        roomIdField = new JTextField();
+
+        createRoomButton = new JButton("Create Room");
+        joinRoomButton = new JButton("Join Room");
+        leaveRoomButton = new JButton("Leave Room");
+        listRoomsButton = new JButton("List Rooms");
+
+        roomPanel.add(new JLabel("Room Name:"));
+        roomPanel.add(roomNameField);
+        roomPanel.add(createRoomButton);
+
+        roomPanel.add(new JLabel("Room ID:"));
+        roomPanel.add(roomIdField);
+        roomPanel.add(joinRoomButton);
+
+        roomPanel.add(listRoomsButton);
+        roomPanel.add(leaveRoomButton);
+
+        createRoomButton.addActionListener(e -> {
+            String name = roomNameField.getText().trim();
+            if (!name.isEmpty())
+                commandSender.sendCommand(new ClientCommand("CREATE_ROOM", name));
+        });
+
+        joinRoomButton.addActionListener(e -> {
+            String id = roomIdField.getText().trim();
+            if (!id.isEmpty())
+                commandSender.sendCommand(new ClientCommand("JOIN_ROOM", id));
+        });
+
+        leaveRoomButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("LEAVE_ROOM")));
+        listRoomsButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("LIST_ROOMS")));
+
+        frame.getContentPane().add(roomPanel, BorderLayout.NORTH);
+    }
+
+    private void setupGamePanel() {
+        gamePanel = new JPanel();
+        gamePanel.setLayout(new GridLayout(4, 3));
+
+        pickBlackButton = new JButton("Pick BLACK");
+        pickWhiteButton = new JButton("Pick WHITE");
+        requestSwapButton = new JButton("Request Swap");
+        acceptSwapButton = new JButton("Accept Swap");
+        declineSwapButton = new JButton("Decline Swap");
+        beginButton = new JButton("Begin Game");
+
+        moveXField = new JTextField();
+        moveYField = new JTextField();
+        moveButton = new JButton("Move");
+        passButton = new JButton("Pass");
+        resignButton = new JButton("Resign");
+
+        gamePanel.add(pickBlackButton);
+        gamePanel.add(pickWhiteButton);
+        gamePanel.add(requestSwapButton);
+
+        gamePanel.add(acceptSwapButton);
+        gamePanel.add(declineSwapButton);
+        gamePanel.add(beginButton);
+
+        gamePanel.add(new JLabel("Move X:"));
+        gamePanel.add(moveXField);
+        gamePanel.add(new JLabel("Move Y:"));
+        gamePanel.add(moveYField);
+        gamePanel.add(moveButton);
+        gamePanel.add(passButton);
+        gamePanel.add(resignButton);
+
+        pickBlackButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("PICK_COLOR", "BLACK")));
+        pickWhiteButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("PICK_COLOR", "WHITE")));
+        requestSwapButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("REQUEST_COLOR_CHANGE")));
+        acceptSwapButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("ACCEPT_COLOR_CHANGE")));
+        declineSwapButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("DECLINE_COLOR_CHANGE")));
+        beginButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("BEGIN")));
+
+        moveButton.addActionListener(e -> sendMove());
+        passButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("PASS")));
+        resignButton.addActionListener(e -> commandSender.sendCommand(new ClientCommand("RESIGN")));
+
+        frame.getContentPane().add(gamePanel, BorderLayout.EAST);
+    }
+
+    private void sendCommand() {
+        String text = inputField.getText().trim();
+        if (!text.isEmpty()) {
+            String[] parts = text.split(" ");
+            String cmd = parts[0];
+            String[] params = Arrays.copyOfRange(parts, 1, parts.length);
+            commandSender.sendCommand(new ClientCommand(cmd, params));
+            inputField.setText("");
+        }
+    }
+
+    private void sendMove() {
+        try {
+            int x = Integer.parseInt(moveXField.getText().trim());
+            int y = Integer.parseInt(moveYField.getText().trim());
+            commandSender.sendCommand(new ClientCommand("MOVE", String.valueOf(x), String.valueOf(y)));
+        } catch (NumberFormatException e) {
+            appendMessage("Invalid coordinates. Must be integers.");
+        }
+    }
+
+    public void appendMessage(String msg) {
+        SwingUtilities.invokeLater(() -> {
+            messageArea.append(msg + "\n");
+            messageArea.setCaretPosition(messageArea.getDocument().getLength());
+        });
+    }
+
+    @Override
+    public void runInputLoop() {
+        // GUI is event-driven, no loop needed
+    }
+}
+
+package com.example;
+
+public abstract class InputHandler {
+    protected final ClientCommandSender commandSender;
+    protected final Client client;
+
+    public InputHandler(ClientCommandSender commandSender, Client client) {
+        this.commandSender = commandSender;
+        this.client = client;
+    }
+
+    public abstract void runInputLoop();
+    
+    // Metoda do przekazywania wiadomości z serwera do UI
+    public abstract void handleServerMessage(String message);
+}

@@ -14,8 +14,8 @@ public class BoardTest {
   void boardToStringTest() {
       Board board = new Board(3);
       // (row, col)
-      board.setInterSec(2, 3, Color.WHITE); // row 2, col 3 -> X
-      board.setInterSec(2, 1, Color.BLACK); // row 2, col 1 -> O
+      board.setInterSec(2, 3, Color.BLACK); // row 2, col 3 -> X
+      board.setInterSec(2, 1, Color.WHITE); // row 2, col 1 -> O
 
       String expected =
           "    1   2   3\n" +

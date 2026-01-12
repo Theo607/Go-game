@@ -16,9 +16,17 @@ public class Client {
 
     private ClientCommandSender commandSender;
     private ClientRequestHandler requestHandler;
-    private ConsoleInputHandler consoleHandler;
+    private InputHandler inputHandler;
 
-    public void start() {
+    public InputHandler getInputHandler() {
+        return inputHandler;
+    }
+
+    public ClientCommandSender getCommandSender() {
+        return commandSender;
+    }
+
+    public void start(String inputHandlerFlag) {
         try {
             socket = new Socket(HOST, PORT);
             out = new ObjectOutputStream(socket.getOutputStream());
@@ -26,12 +34,29 @@ public class Client {
 
             commandSender = new ClientCommandSender(out);
             requestHandler = new ClientRequestHandler(this);
-            consoleHandler = new ConsoleInputHandler(commandSender, this);
 
+            // choose input handler
+            switch (inputHandlerFlag) {
+                case "gui" -> inputHandler = new GuiInputHandler(commandSender, this);
+                case "console" -> inputHandler = new ConsoleInputHandler(commandSender, this);
+                default -> inputHandler = new ConsoleInputHandler(commandSender, this);
+            }
+
+            // start listener thread
             Thread listenerThread = new Thread(new ClientListener(in, requestHandler));
             listenerThread.start();
 
-            consoleHandler.runInputLoop(); // main thread handles console input
+            // run input handler
+            inputHandler.runInputLoop();
+
+            // main loop keeps client alive
+            while (running) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
 
         } catch (IOException e) {
             System.out.println("Unable to connect to server.");
@@ -58,6 +83,8 @@ public class Client {
     }
 
     public static void main(String[] args) {
-        new Client().start();
+        String mode = args.length > 0 ? args[0] : "console";
+        new Client().start(mode);
     }
 }
+

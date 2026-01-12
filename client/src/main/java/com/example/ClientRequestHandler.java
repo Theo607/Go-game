@@ -84,5 +84,8 @@ public class ClientRequestHandler {
                 client.printStr("Server message (" + type + "): " + String.join(", ", params));
             }
         }
+        if (client.getInputHandler() instanceof GuiInputHandler gui) {
+            gui.handleServerMessage(type + ": " + Arrays.toString(params));
+        }
     }
 }

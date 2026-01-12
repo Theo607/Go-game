@@ -1,0 +1,925 @@
+package com.example;
+
+public class ClientCommandProcessor {
+    private final ClientHandler client;
+    private final RoomActionHandler roomHandler;
+    private final GameActionHandler gameHandler;
+
+    public ClientCommandProcessor(ClientHandler client) {
+        this.client = client;
+        this.roomHandler = new RoomActionHandler(client);
+        this.gameHandler = new GameActionHandler(client);
+    }
+
+    public void processCommand(NetworkMessage message) {
+        if (!(message instanceof ClientCommand command)) return;
+
+        switch (command.getCommandType()) {
+            case "SET_USERNAME" -> {
+                if (command.getParameters().length > 0) {
+                    client.setUsername(command.getParameters()[0]);
+                    client.sendRequest(new ServerRequest("USERNAME_SET", client.getUsername()));
+                }
+            }
+            case "CREATE_ROOM", "JOIN_ROOM", "LEAVE_ROOM", "LIST_ROOMS",
+                 "PICK_COLOR", "REQUEST_COLOR_CHANGE", "ACCEPT_COLOR_CHANGE", "DECLINE_COLOR_CHANGE", "BEGIN" ->
+                    roomHandler.handleCommand(command);
+
+            case "MOVE", "PASS", "RESIGN" ->
+                    gameHandler.handleCommand(command);
+
+            default -> client.sendRequest(new ServerRequest("UNKNOWN_COMMAND", command.getCommandType()));
+        }
+    }
+}
+package com.example;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
+public class ClientHandler implements Runnable {
+    private final Socket socket;
+    private final ClientManager manager;
+    private final RoomManager roomManager;
+
+    private ObjectOutputStream out;
+    private ObjectInputStream in;
+
+    private String username = "Guest";
+    private Room currentRoom = null;
+
+    private final BlockingQueue<PlayerAction> actionQueue = new LinkedBlockingQueue<>();
+
+    private final ClientCommandProcessor commandProcessor;
+
+    public ClientHandler(Socket socket, ClientManager manager, RoomManager roomManager) {
+        this.socket = socket;
+        this.manager = manager;
+        this.roomManager = roomManager;
+        this.commandProcessor = new ClientCommandProcessor(this);
+
+        manager.addClient(this);
+
+        try {
+            this.out = new ObjectOutputStream(socket.getOutputStream());
+            this.in = new ObjectInputStream(socket.getInputStream());
+        } catch (IOException e) {
+            System.out.println("Error initializing streams for client " + socket.getInetAddress());
+        }
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (true) {
+                Object obj = in.readObject();
+                if (obj instanceof NetworkMessage message) {
+                    commandProcessor.processCommand(message);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Client disconnected: " + socket.getInetAddress());
+        } finally {
+            manager.removeClient(this);
+            roomManager.leaveRoom(this);
+            close();
+        }
+    }
+
+    /* =========================
+       Player action handling
+       ========================= */
+
+    public void submitAction(PlayerAction action) {
+        actionQueue.offer(action);
+    }
+
+    public PlayerAction waitForAction() throws InterruptedException {
+        return actionQueue.take(); // blocks safely
+    }
+
+    /* =========================
+       Networking
+       ========================= */
+
+    public void sendRequest(ServerRequest request) {
+        try {
+            out.writeObject(request);
+            out.flush();
+        } catch (IOException e) {
+            System.out.println("Failed to send request to client " + socket.getInetAddress());
+        }
+    }
+
+    public void close() {
+        try {
+            in.close();
+            out.close();
+            socket.close();
+        } catch (IOException e) {
+            System.out.println("Error closing client " + socket.getInetAddress());
+        }
+    }
+
+    /* =========================
+       Getters / setters
+       ========================= */
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public Room getCurrentRoom() { return currentRoom; }
+    public void setCurrentRoom(Room room) { this.currentRoom = room; }
+
+    public RoomManager getRoomManager() { return roomManager; }
+}
+package com.example;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class ClientManager {
+    private final List<ClientHandler> clients;
+
+    public ClientManager() {
+        clients = new ArrayList<>();
+    }
+
+    public synchronized void addClient(ClientHandler client) {
+        clients.add(client);
+        System.out.println("Client added. Total clients: " + clients.size());
+    }
+
+    public synchronized void removeClient(ClientHandler client) {
+        clients.remove(client);
+        System.out.println("Client removed. Total clients: " + clients.size());
+    }
+
+    public synchronized int getClientCount() {
+        return clients.size();
+    }
+}
+package com.example;
+
+public class GameActionHandler {
+    private final ClientHandler client;
+
+    public GameActionHandler(ClientHandler client) {
+        this.client = client;
+    }
+
+    public void handleCommand(ClientCommand command) {
+        Room room = client.getCurrentRoom();
+
+        if (room == null || !room.isStarted()) {
+            client.sendRequest(new ServerRequest("GAME_NOT_STARTED"));
+            return;
+        }
+
+        try {
+            switch (command.getCommandType()) {
+                case "MOVE" -> {
+                    if (command.getParameters().length < 2) {
+                        client.sendRequest(new ServerRequest("INVALID_MOVE", "Coordinates missing"));
+                        return;
+                    }
+                    int x = Integer.parseInt(command.getParameters()[0]);
+                    int y = Integer.parseInt(command.getParameters()[1]);
+                    Move move = new Move(x, y, room.getColor(client));
+                    client.submitAction(PlayerAction.move(move));
+                }
+                case "PASS" -> client.submitAction(PlayerAction.pass());
+                case "RESIGN" -> client.submitAction(PlayerAction.resign());
+                default -> client.sendRequest(new ServerRequest("UNKNOWN_GAME_COMMAND", command.getCommandType()));
+            }
+        } catch (NumberFormatException e) {
+            client.sendRequest(new ServerRequest("INVALID_MOVE", "Coordinates must be integers"));
+        } catch (Exception e) {
+            client.sendRequest(new ServerRequest("INVALID_MOVE", e.getMessage()));
+        }
+    }
+}
+package com.example;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class GameLogic {
+
+    private final Room room;
+    private final Board board;
+
+    public GameLogic(Room room) {
+        this.room = room;
+        this.board = new Board(19); // default 19x19 board
+    }
+
+    /**
+     * Attempt to play a move. Returns true if legal.
+     */
+    public boolean tryMove(Move move) {
+        int x = move.getX();
+        int y = move.getY();
+        Color color = move.getState();
+
+        // Check if coordinates are in bounds
+        if (x < 1 || x > board.getSize() || y < 1 || y > board.getSize())
+            return false;
+
+        // Check if intersection is empty
+        if (board.getInterSec(x, y) != Color.NONE)
+            return false;
+
+        // Tentatively place stone
+        board.setInterSec(x, y, color);
+
+        // Check for captures
+        removeCapturedStones(opposite(color));
+
+        // Check for suicide (if the stone has no liberties after placement)
+        if (!hasLiberty(x, y)) {
+            board.setInterSec(x, y, Color.NONE); // undo
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Remove all opponent stones that have no liberties.
+     */
+    private void removeCapturedStones(Color opponent) {
+        boolean[][] visited = new boolean[board.getSize()][board.getSize()];
+
+        for (int i = 1; i <= board.getSize(); i++) {
+            for (int j = 1; j <= board.getSize(); j++) {
+                if (!visited[i - 1][j - 1] && board.getInterSec(i, j) == opponent) {
+                    List<int[]> group = new ArrayList<>();
+                    if (!groupHasLiberty(i, j, opponent, visited, group)) {
+                        // remove stones
+                        for (int[] pos : group) {
+                            board.setInterSec(pos[0], pos[1], Color.NONE);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if a group has at least one liberty, DFS style.
+     */
+    private boolean groupHasLiberty(int x, int y, Color color, boolean[][] visited, List<int[]> group) {
+        int size = board.getSize();
+        if (x < 1 || x > size || y < 1 || y > size) return false;
+        if (visited[x - 1][y - 1]) return false;
+
+        visited[x - 1][y - 1] = true;
+        Color current = board.getInterSec(x, y);
+        if (current == Color.NONE) return true;
+        if (current != color) return false;
+
+        group.add(new int[]{x, y});
+
+        // check 4 neighbors
+        boolean hasLiberty = false;
+        int[][] dirs = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+        for (int[] d : dirs) {
+            int nx = x + d[0];
+            int ny = y + d[1];
+            if (nx >= 1 && nx <= size && ny >= 1 && ny <= size) {
+                if (!visited[nx - 1][ny - 1]) {
+                    if (board.getInterSec(nx, ny) == Color.NONE) hasLiberty = true;
+                    else if (board.getInterSec(nx, ny) == color) {
+                        hasLiberty |= groupHasLiberty(nx, ny, color, visited, group);
+                    }
+                }
+            }
+        }
+        return hasLiberty;
+    }
+
+    private boolean hasLiberty(int x, int y) {
+        boolean[][] visited = new boolean[board.getSize()][board.getSize()];
+        List<int[]> group = new ArrayList<>();
+        return groupHasLiberty(x, y, board.getInterSec(x, y), visited, group);
+    }
+
+    private Color opposite(Color color) {
+        return color == Color.BLACK ? Color.WHITE : Color.BLACK;
+    }
+
+    public Board getBoard() {
+        return board;
+    }
+
+}
+package com.example;
+
+public class GameSession implements Runnable {
+
+    private final Room room;
+    private final GameLogic logic;
+
+    public GameSession(Room room) {
+        this.room = room;
+        this.logic = new GameLogic(room);
+    }
+
+    @Override
+    public void run() {
+        ClientHandler blackPlayer = null;
+        ClientHandler whitePlayer = null;
+
+        // Determine colors
+        for (ClientHandler p : room.getPlayers()) {
+            if (room.getColor(p) == Color.BLACK) {
+                blackPlayer = p;
+            } else if (room.getColor(p) == Color.WHITE) {
+                whitePlayer = p;
+            }
+        }
+
+        if (blackPlayer == null || whitePlayer == null) {
+            room.broadcast(new ServerRequest(
+                    "ERROR", "Both players must have chosen colors."));
+            return;
+        }
+
+        ClientHandler currentPlayer = blackPlayer;
+        ClientHandler otherPlayer = whitePlayer;
+
+        int consecutivePasses = 0;
+
+        // Initial board
+        broadcastBoard();
+
+        while (true) {
+            try {
+                currentPlayer.sendRequest(
+                        new ServerRequest("YOUR_TURN", currentPlayer.getUsername()));
+
+                PlayerAction action = currentPlayer.waitForAction();
+
+                // Resign
+                if (action.isResign()) {
+                    room.broadcast(new ServerRequest(
+                            "GAME_OVER",
+                            currentPlayer.getUsername() + " resigned."));
+                    break;
+                }
+
+                // Pass
+                if (action.isPass()) {
+                    room.broadcast(new ServerRequest(
+                            "PLAYER_PASSED",
+                            currentPlayer.getUsername()));
+                    consecutivePasses++;
+                }
+                // Move
+                else {
+                    Move move = action.getMove();
+                    boolean legal = logic.tryMove(move);
+
+                    if (!legal) {
+                        currentPlayer.sendRequest(new ServerRequest(
+                                "ILLEGAL_MOVE",
+                                move.getX() + "," + move.getY()));
+                        continue; // retry same player
+                    }
+
+                    room.broadcast(new ServerRequest(
+                            "PLAYER_MOVED",
+                            currentPlayer.getUsername(),
+                            move.getX() + "," + move.getY()));
+
+                    consecutivePasses = 0;
+                }
+
+                broadcastBoard();
+
+                // End condition: double pass
+                if (consecutivePasses >= 2) {
+                    room.broadcast(new ServerRequest(
+                            "GAME_OVER",
+                            "Both players passed consecutively."));
+                    break;
+                }
+
+                // Swap turns
+                ClientHandler temp = currentPlayer;
+                currentPlayer = otherPlayer;
+                otherPlayer = temp;
+
+            } catch (InterruptedException e) {
+                room.broadcast(new ServerRequest(
+                        "ERROR", "Game session interrupted."));
+                break;
+            }
+        }
+    }
+
+    private void broadcastBoard() {
+        String boardStr = logic.getBoard().boardToString();
+        room.broadcast(new ServerRequest("BOARD_UPDATE", boardStr));
+    }
+}
+package com.example;
+
+public class PlayerAction {
+    private final Move move;    // null if pass
+    private final boolean resign;
+
+    private PlayerAction(Move move, boolean resign) {
+        this.move = move;
+        this.resign = resign;
+    }
+
+    public static PlayerAction move(Move move) {
+        return new PlayerAction(move, false);
+    }
+
+    public static PlayerAction pass() {
+        return new PlayerAction(null, false);
+    }
+
+    public static PlayerAction resign() {
+        return new PlayerAction(null, true);
+    }
+
+    public Move getMove() { return move; }
+    public boolean isPass() { return move == null && !resign; }
+    public boolean isResign() { return resign; }
+}
+package com.example;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class Room {
+    private final String roomId;
+    private final String roomName;
+    private ClientHandler owner;
+    private final List<ClientHandler> players = new ArrayList<>();
+    private boolean started = false;
+    private final Map<ClientHandler, Color> colors = new HashMap<>();
+    private ClientHandler colorChangeRequester = null;
+
+    private GameLogic gameLogic; // Holds the board and rules
+
+    public Room(String roomId, String roomName, ClientHandler owner) {
+        this.roomId = roomId;
+        this.roomName = roomName;
+        this.owner = owner;
+    }
+
+    public synchronized void start() {
+        if (!started && players.size() == 2) {
+            started = true;
+        }
+    }
+
+    public boolean isStarted() {
+        return started;
+    }
+
+    public List<ClientHandler> getPlayers() {
+        return players;
+    }
+
+    public ClientHandler getOwner() {
+        return owner;
+    }
+
+    public boolean isOwner(ClientHandler client) {
+        return owner == client;
+    }
+
+    public void setOwner(ClientHandler newOwner) {
+        this.owner = newOwner;
+    }
+
+    public synchronized Color getColor(ClientHandler player) {
+        return colors.getOrDefault(player, Color.NONE);
+    }
+
+    public synchronized boolean pickColor(ClientHandler player, Color color) {
+        if (started)
+            return false;
+        if (colors.get(player) != null && colors.get(player) != Color.NONE)
+            return false;
+
+        if (colors.containsValue(color))
+            return false;
+
+        colors.put(player, color);
+
+        // assign remaining color to other player
+        for (ClientHandler p : players) {
+            if (p != player)
+                colors.put(p, color == Color.BLACK ? Color.WHITE : Color.BLACK);
+        }
+        return true;
+    }
+
+    public synchronized boolean colorsChosen() {
+        return colors.values().stream().noneMatch(c -> c == Color.NONE);
+    }
+
+    public synchronized void broadcast(ServerRequest request) {
+        for (ClientHandler player : players)
+            player.sendRequest(request);
+    }
+
+    public synchronized GameLogic getGameLogic() {
+        return gameLogic;
+    }
+
+    public synchronized boolean join(ClientHandler client) {
+        if (players.size() < 2) {
+            players.add(client);
+            colors.put(client, Color.NONE);
+            return true;
+        }
+        return false;
+    }
+
+    public synchronized void leave(ClientHandler client) {
+        players.remove(client);
+        colors.remove(client);
+        if (client == owner && !players.isEmpty()) {
+            owner = players.get(0);
+        }
+    }
+
+    public String getRoomId() {
+        return roomId;
+    }
+
+    public String getRoomName() {
+        return roomName;
+    }
+
+    // Color change methods
+    public synchronized void setColorChangeRequester(ClientHandler client) {
+        colorChangeRequester = client;
+    }
+
+    public synchronized ClientHandler getColorChangeRequester() {
+        return colorChangeRequester;
+    }
+
+    public synchronized void clearColorChangeRequest() {
+        colorChangeRequester = null;
+    }
+
+    public synchronized boolean canRespondToColorChange(ClientHandler player) {
+        return colorChangeRequester != null && player != colorChangeRequester;
+    }
+
+    public synchronized void swapColors(ClientHandler a, ClientHandler b) {
+        Color temp = colors.get(a);
+        colors.put(a, colors.get(b));
+        colors.put(b, temp);
+    }
+
+}
+package com.example;
+
+import java.util.List;
+
+public class RoomActionHandler {
+    private final ClientHandler client;
+    private final RoomManager roomManager;
+
+    public RoomActionHandler(ClientHandler client) {
+        this.client = client;
+        this.roomManager = client.getRoomManager();
+    }
+
+    private boolean checkUsernameSet() {
+        if ("Guest".equals(client.getUsername())) {
+            client.sendRequest(
+                    new ServerRequest("ERROR", "You must set your username before joining or creating a room."));
+            return false;
+        }
+        return true;
+    }
+
+    public void handleCommand(ClientCommand command) {
+        // Normalize: trim and uppercase
+        String cmdType = command.getCommandType().trim().toUpperCase();
+
+        switch (cmdType) {
+            case "BEGIN" -> handleBeginGame();
+            case "CREATE_ROOM" -> handleCreateRoom(command);
+            case "JOIN_ROOM" -> handleJoinRoom(command);
+            case "LEAVE_ROOM" -> handleLeaveRoom();
+            case "LIST_ROOMS" -> handleListRooms();
+            case "PICK_COLOR" -> handlePickColor(command);
+            case "REQUEST_COLOR_CHANGE" -> handleRequestColorChange();
+            case "ACCEPT_COLOR_CHANGE" -> handleAcceptColorChange();
+            case "DECLINE_COLOR_CHANGE" -> handleDeclineColorChange();
+            default -> client.sendRequest(new ServerRequest("UNKNOWN_COMMAND", command.getCommandType()));
+        }
+    }
+
+    private void handleBeginGame() {
+        Room room = client.getCurrentRoom();
+        if (room == null) {
+            client.sendRequest(new ServerRequest("ERROR", "You are not in a room."));
+            return;
+        }
+
+        if (!room.isOwner(client)) {
+            client.sendRequest(new ServerRequest("ERROR", "Only the room owner can start the game."));
+            return;
+        }
+
+        if (!room.colorsChosen()) {
+            client.sendRequest(new ServerRequest("ERROR", "Both players must pick colors before starting."));
+            return;
+        }
+
+        if (room.isStarted()) {
+            client.sendRequest(new ServerRequest("ERROR", "Game has already started."));
+            return;
+        }
+
+        // Mark the room as started
+        room.start();// you might need to add a setter for this in Room
+
+        room.broadcast(new ServerRequest("GAME_STARTED"));
+
+        // Start a new game session thread
+        GameSession session = new GameSession(room);
+        new Thread(session).start();
+    }
+
+    private void handleCreateRoom(ClientCommand command) {
+        if (!checkUsernameSet())
+            return;
+        if (command.getParameters().length >= 1) {
+            String roomName = command.getParameters()[0];
+            Room room = client.getCurrentRoom() != null ? client.getCurrentRoom()
+                    : client.getCurrentRoom() == null ? roomManager.createRoom(roomName, client) : null;
+            roomManager.joinRoom(room.getRoomId(), client);
+            client.sendRequest(new ServerRequest("ROOM_CREATED", room.getRoomName(), room.getRoomId()));
+        } else {
+            client.sendRequest(new ServerRequest("USAGE", "CREATE_ROOM <roomName>"));
+        }
+    }
+
+    private void handleJoinRoom(ClientCommand command) {
+        if (!checkUsernameSet())
+            return;
+        if (command.getParameters().length == 0) {
+            client.sendRequest(new ServerRequest("USAGE", "JOIN_ROOM <roomId>"));
+            return;
+        }
+
+        String roomId = command.getParameters()[0];
+        boolean success = roomManager.joinRoom(roomId, client);
+
+        if (success) {
+            client.sendRequest(new ServerRequest("JOINED_ROOM", roomId));
+        } else {
+            client.sendRequest(new ServerRequest("JOIN_ROOM_FAILED", roomId));
+        }
+    }
+
+    private void handleLeaveRoom() {
+        Room room = client.getCurrentRoom();
+        if (room == null) {
+            client.sendRequest(new ServerRequest("NOT_IN_ROOM"));
+            return;
+        }
+
+        roomManager.leaveRoom(client);
+        client.sendRequest(new ServerRequest("LEFT_ROOM", room.getRoomName()));
+    }
+
+    private void handleListRooms() {
+        Room room = client.getCurrentRoom();
+        if (room != null) {
+            // Player is in a room → list players with roles and colors
+            StringBuilder sb = new StringBuilder();
+            for (ClientHandler p : room.getPlayers()) {
+                String role = room.isOwner(p) ? "Owner" : "Player";
+                Color color = room.getColor(p);
+                String colorStr = switch (color) {
+                    case BLACK -> "(B)";
+                    case WHITE -> "(W)";
+                    default -> "(N)";
+                };
+                sb.append(role).append(" ").append(p.getUsername()).append(" ").append(colorStr).append("\n");
+            }
+            client.sendRequest(new ServerRequest("ROOM_PLAYERS", sb.toString().trim()));
+        } else {
+            // Player not in a room → list rooms
+            List<String> rooms = roomManager.listRooms();
+            if (rooms.isEmpty()) {
+                client.sendRequest(new ServerRequest("NO_ROOMS_AVAILABLE"));
+            } else {
+                StringBuilder sb = new StringBuilder();
+                for (String r : rooms) {
+                    sb.append(r).append("\n");
+                }
+                client.sendRequest(new ServerRequest("AVAILABLE_ROOMS", sb.toString().trim()));
+            }
+        }
+    }
+
+    private void handlePickColor(ClientCommand command) {
+        Room room = client.getCurrentRoom();
+        if (room == null) {
+            client.sendRequest(new ServerRequest("NOT_IN_ROOM"));
+            return;
+        }
+
+        if (room.isStarted()) {
+            client.sendRequest(new ServerRequest("GAME_ALREADY_STARTED"));
+            return;
+        }
+
+        if (command.getParameters().length == 0) {
+            client.sendRequest(new ServerRequest("USAGE", "PICK_COLOR <BLACK|WHITE>"));
+            return;
+        }
+
+        Color color;
+        try {
+            color = Color.valueOf(command.getParameters()[0]);
+        } catch (IllegalArgumentException e) {
+            client.sendRequest(new ServerRequest("INVALID_COLOR"));
+            return;
+        }
+
+        boolean success = room.pickColor(client, color);
+        if (success) {
+            room.broadcast(new ServerRequest("COLOR_PICKED", client.getUsername(), color.name()));
+        } else {
+            client.sendRequest(new ServerRequest("COLOR_UNAVAILABLE"));
+        }
+    }
+
+    private void handleRequestColorChange() {
+        Room room = client.getCurrentRoom();
+        if (room == null || room.isStarted()) {
+            client.sendRequest(new ServerRequest("CANNOT_CHANGE_COLOR_NOW"));
+            return;
+        }
+
+        room.setColorChangeRequester(client);
+        room.broadcast(new ServerRequest("COLOR_CHANGE_REQUEST", client.getUsername()));
+    }
+
+    private void handleAcceptColorChange() {
+        Room room = client.getCurrentRoom();
+        if (room == null || !room.canRespondToColorChange(client)) {
+            client.sendRequest(new ServerRequest("CANNOT_ACCEPT_COLOR_CHANGE"));
+            return;
+        }
+
+        ClientHandler requester = room.getColorChangeRequester();
+        room.swapColors(requester, client);
+        room.clearColorChangeRequest();
+        room.broadcast(new ServerRequest("COLORS_SWAPPED"));
+    }
+
+    private void handleDeclineColorChange() {
+        Room room = client.getCurrentRoom();
+        if (room == null || room.getColorChangeRequester() == null) {
+            client.sendRequest(new ServerRequest("NO_COLOR_CHANGE_REQUEST_PENDING"));
+            return;
+        }
+
+        room.clearColorChangeRequest();
+        room.broadcast(new ServerRequest("COLOR_CHANGE_DECLINED"));
+    }
+}
+package com.example;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+public class RoomManager {
+    private final Map<String, Room> rooms = new HashMap<>();
+
+    public synchronized Room createRoom(String roomName, ClientHandler owner) {
+        String roomId = generateUniqueId();
+        Room room = new Room(roomId, roomName, owner);
+        rooms.put(roomId, room);
+        return room;
+    }
+
+    public synchronized boolean joinRoom(String roomId, ClientHandler client) {
+        if (client.getCurrentRoom() != null) {
+            return false;
+        }
+
+        Room room = rooms.get(roomId);
+        if (room != null) {
+            boolean success = room.join(client);
+            if (success) {
+                client.setCurrentRoom(room);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public synchronized void leaveRoom(ClientHandler client) {
+        Room room = client.getCurrentRoom();
+        if (room == null)
+            return;
+
+        room.leave(client); // remove player
+        client.setCurrentRoom(null);
+
+        if (room.getPlayers().isEmpty()) {
+            // No players left → remove room
+            rooms.remove(room.getRoomId());
+        } else if (room.getOwner() == client) {
+            // Owner left → transfer ownership to the first remaining player
+            ClientHandler newOwner = room.getPlayers().get(0);
+            room.setOwner(newOwner); // Need to add setter in Room class
+            room.broadcast(new ServerRequest("NEW_OWNER", newOwner.getUsername()));
+        }
+    }
+
+    public synchronized Room getRoom(String roomId) {
+        return rooms.get(roomId);
+    }
+
+    public synchronized void removeRoom(String roomId) {
+        rooms.remove(roomId);
+    }
+
+    private String generateUniqueId() {
+        String id;
+        do {
+            id = UUID.randomUUID().toString().substring(0, 8); // short ID
+        } while (rooms.containsKey(id));
+        return id;
+    }
+
+    public synchronized List<String> listRooms() {
+        return rooms.values().stream()
+                .map(room -> room.getRoomId() + " - " + room.getRoomName())
+                .collect(Collectors.toList());
+    }
+}
+package com.example;
+
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
+
+public class Server {
+    private static final int PORT = 1664;
+    private ServerSocket serverSocket;
+    private final ClientManager clientManager = new ClientManager();
+    private final RoomManager roomManager = new RoomManager();
+
+    public void start() {
+        try {
+            serverSocket = new ServerSocket(PORT);
+            System.out.println("Server started on port " + PORT);
+
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                System.out.println("New client connected: " + clientSocket.getInetAddress());
+
+                ClientHandler handler = new ClientHandler(clientSocket, clientManager, roomManager);
+                new Thread(handler).start();
+            }
+        } catch (IOException e) {
+            System.out.println("Server error: " + e.getMessage());
+        } finally {
+            stop();
+        }
+    }
+
+    public void stop() {
+        try {
+            if (serverSocket != null) serverSocket.close();
+            System.out.println("Server stopped.");
+        } catch (IOException e) {
+            System.out.println("Error closing server: " + e.getMessage());
+        }
+    }
+
+    public static void main(String[] args) {
+        new Server().start();
+    }
+}
