@@ -1,18 +1,18 @@
 package com.example;
+
 import java.io.Serializable;
 
 public class Board implements Serializable{
     private int size = 19;
-    private final Color[][] field;
+    private final StoneColor[][] field;
 
     public Board(int lines) {
         this.size = lines;
-        field = new Color[size][size];
+        field = new StoneColor[size][size];
 
-        // Initialize all squares to None
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
-                field[i][j] = Color.NONE;
+                field[i][j] = StoneColor.EMPTY_STONE;
             }
         }
     }
@@ -22,14 +22,14 @@ public class Board implements Serializable{
     }
 
     // Assuming 1 <= x, y <= size
-    public Color getInterSec(int row, int column) {
+    public StoneColor getInterSec(int row, int column) {
         if (inBound(row) && inBound(column)) {
             return field[row - 1][column - 1];
         }
         throw new IndexOutOfBoundsException("Coordinates out of bounds: row = " + row + ", column = " + column);
     }
 
-    public void setInterSec(int row, int column, Color state) {
+    public void setInterSec(int row, int column, StoneColor state) {
         if (inBound(row) && inBound(column)) {
             field[row - 1][column - 1] = state;
         } else {
@@ -38,47 +38,31 @@ public class Board implements Serializable{
     }
 
     public String boardToString() {
-      StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
 
-      sb.append("    ");
-      for (int col = 1; col <= size; col++) {
-          sb.append(col).append("   ");
-      }
-      sb.append("\n");
+        // Column headers
+        sb.append("   ");
+        for (int col = 1; col <= size; col++) {
+            sb.append(String.format("%2d ", col));
+        }
+        sb.append("\n");
 
-      for (int row = 1; row <= size; row++) {
+        for (int row = 1; row <= size; row++) {
+            sb.append(String.format("%2d ", row)); // row number
+            for (int col = 1; col <= size; col++) {
+                StoneColor field = getInterSec(row, col);
+                char c = switch (field) {
+                    case BLACK_STONE -> 'X';
+                    case WHITE_STONE -> 'O';
+                    default -> '.';
+                };
+                sb.append(" ").append(c).append(" ");
+            }
+            sb.append("\n");
+        }
 
-          sb.append(String.format("%3d ", row));
-          for (int col = 1; col <= size; col++) {
-              Color field = getInterSec(row, col);
-
-              char c;
-              switch (field) {
-                  case Color.BLACK -> c = 'X';
-                  case Color.WHITE -> c = 'O';
-                  default -> c = '+';
-              }
-
-              sb.append(c);
-
-              if (col < size) {
-                  sb.append("---");
-              }
-          }
-          sb.append("\n");
-
-          if (row < size) {
-              sb.append("    ");
-              for (int col = 1; col <= size; col++) {
-                  sb.append("|");
-                  if (col < size) sb.append("   ");
-              }
-              sb.append("\n");
-          }
-      }
-
-      return sb.toString();
-  }
+        return sb.toString();
+    }
 
     public int getSize() {
         return size;

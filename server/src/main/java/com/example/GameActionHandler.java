@@ -1,40 +1,53 @@
 package com.example;
 
 public class GameActionHandler {
+
     private final ClientHandler client;
 
     public GameActionHandler(ClientHandler client) {
         this.client = client;
     }
 
-    public void handleCommand(ClientCommand command) {
+    public void handleMessage(Message msg) {
         Room room = client.getCurrentRoom();
 
         if (room == null || !room.isStarted()) {
-            client.sendRequest(new ServerRequest("GAME_NOT_STARTED"));
+            sendError("Game has not started.");
             return;
         }
 
+        StoneColor stoneColor = room.getColor(client);
+
         try {
-            switch (command.getCommandType()) {
-                case "MOVE" -> {
-                    if (command.getParameters().length < 2) {
-                        client.sendRequest(new ServerRequest("INVALID_MOVE", "Coordinates missing"));
-                        return;
-                    }
-                    int x = Integer.parseInt(command.getParameters()[0]);
-                    int y = Integer.parseInt(command.getParameters()[1]);
-                    Move move = new Move(x, y, room.getColor(client));
-                    client.submitAction(PlayerAction.move(move));
-                }
-                case "PASS" -> client.submitAction(PlayerAction.pass());
-                case "RESIGN" -> client.submitAction(PlayerAction.resign());
-                default -> client.sendRequest(new ServerRequest("UNKNOWN_GAME_COMMAND", command.getCommandType()));
+            switch (msg.type) {
+                case MOVE -> handleMove(msg, stoneColor);
+                case PASS -> client.submitAction(PlayerAction.pass());
+                case RESIGN -> client.submitAction(PlayerAction.resign());
+                default -> sendError("Unknown game command: " + msg.type);
             }
-        } catch (NumberFormatException e) {
-            client.sendRequest(new ServerRequest("INVALID_MOVE", "Coordinates must be integers"));
         } catch (Exception e) {
-            client.sendRequest(new ServerRequest("INVALID_MOVE", e.getMessage()));
+            sendError("Invalid move: " + e.getMessage());
         }
     }
+
+    private void handleMove(Message msg, StoneColor stoneColor) throws Exception {
+        Move move = msg.move;
+
+        if (move == null) {
+            sendError("Move is missing in the message.");
+            return;
+        }
+
+        // Ensure the move has the correct color assigned from the player
+        Move coloredMove = new Move(move.getX(), move.getY(), stoneColor);
+        client.submitAction(PlayerAction.move(coloredMove));
+    }
+
+    private void sendError(String text) {
+        Message m = new Message();
+        m.type = MessageType.ERROR;
+        m.error = text; // reuse nick field for errors
+        client.sendMessage(m);
+    }
 }
+

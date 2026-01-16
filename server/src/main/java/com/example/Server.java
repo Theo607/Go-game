@@ -7,24 +7,28 @@ import java.net.Socket;
 public class Server {
     private static final int PORT = 1664;
     private ServerSocket serverSocket;
+    private static boolean running;
+
     private final ClientManager clientManager = new ClientManager();
     private final RoomManager roomManager = new RoomManager();
 
     public void start() {
         try {
+            running = true;
             serverSocket = new ServerSocket(PORT);
-            System.out.println("Server started on port " + PORT);
+            Logger.info("Server started on port: " + PORT);
 
-            while (true) {
+            while (running) {
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("New client connected: " + clientSocket.getInetAddress());
+                Logger.info("New client connected: " + clientSocket.getInetAddress());
 
                 ClientHandler handler = new ClientHandler(clientSocket, clientManager, roomManager);
                 new Thread(handler).start();
             }
         } catch (IOException e) {
-            System.out.println("Server error: " + e.getMessage());
+            Logger.error("Server error: ",  e);
         } finally {
+            Logger.info("Server stopped.");
             stop();
         }
     }
@@ -32,11 +36,13 @@ public class Server {
     public void stop() {
         try {
             if (serverSocket != null) serverSocket.close();
-            System.out.println("Server stopped.");
+            Logger.info("Server stopped.");
         } catch (IOException e) {
-            System.out.println("Error closing server: " + e.getMessage());
+            Logger.error("Error closing server: ", e);
         }
     }
+
+    public void kill() { running = false; }
 
     public static void main(String[] args) {
         new Server().start();

@@ -1,5 +1,7 @@
 package com.example;
 
+import java.util.List;
+
 public class GameSession implements Runnable {
 
     private final Room room;
@@ -7,7 +9,7 @@ public class GameSession implements Runnable {
 
     public GameSession(Room room) {
         this.room = room;
-        this.logic = new GameLogic(room);
+        this.logic = room.getGameLogic();
     }
 
     @Override
@@ -15,24 +17,20 @@ public class GameSession implements Runnable {
         ClientHandler blackPlayer = null;
         ClientHandler whitePlayer = null;
 
-        // Determine colors
+        // Assign players by color
         for (ClientHandler p : room.getPlayers()) {
-            if (room.getColor(p) == Color.BLACK) {
-                blackPlayer = p;
-            } else if (room.getColor(p) == Color.WHITE) {
-                whitePlayer = p;
-            }
+            StoneColor color = room.getColor(p);
+            if (color == StoneColor.BLACK_STONE) blackPlayer = p;
+            else if (color == StoneColor.WHITE_STONE) whitePlayer = p;
         }
 
         if (blackPlayer == null || whitePlayer == null) {
-            room.broadcast(new ServerRequest(
-                    "ERROR", "Both players must have chosen colors."));
+            broadcastError("Both players must pick colors.");
             return;
         }
 
         ClientHandler currentPlayer = blackPlayer;
         ClientHandler otherPlayer = whitePlayer;
-
         int consecutivePasses = 0;
 
         // Initial board
@@ -40,54 +38,67 @@ public class GameSession implements Runnable {
 
         while (true) {
             try {
-                currentPlayer.sendRequest(
-                        new ServerRequest("YOUR_TURN", currentPlayer.getUsername()));
+                // Notify current player it's their turn
+                Message yourTurnMsg = new Message();
+                yourTurnMsg.type = MessageType.YOUR_TURN;
+                yourTurnMsg.nick = currentPlayer.username;
+                currentPlayer.sendMessage(yourTurnMsg);
 
+                // Wait for player action
                 PlayerAction action = currentPlayer.waitForAction();
 
                 // Resign
                 if (action.isResign()) {
-                    room.broadcast(new ServerRequest(
-                            "GAME_OVER",
-                            currentPlayer.getUsername() + " resigned."));
+                    Message gameLost = new Message();
+                    Message gameWon = new Message();
+                    gameLost.type = MessageType.GAME_LOST;
+                    gameWon.type = MessageType.GAME_WON;
+                    currentPlayer.sendMessage(gameLost);
+                    otherPlayer.sendMessage(gameWon);
                     break;
                 }
 
                 // Pass
                 if (action.isPass()) {
-                    room.broadcast(new ServerRequest(
-                            "PLAYER_PASSED",
-                            currentPlayer.getUsername()));
+                    broadcastInfo(currentPlayer.username + " passed.");
                     consecutivePasses++;
+
+                    if (consecutivePasses >= 2) {
+                        Message tie = new Message();
+                        tie.type = MessageType.GAME_TIED;
+                        room.broadcast(tie);
+                        break; // exit loop immediately
+                    }
+
+                    // skip move logic and swap turns; next iteration handled in loop
+                    ClientHandler temp = currentPlayer;
+                    currentPlayer = otherPlayer;
+                    otherPlayer = temp;
+                    continue;
                 }
                 // Move
                 else {
                     Move move = action.getMove();
-                    boolean legal = logic.tryMove(move);
+                    move.setState(room.getColor(currentPlayer));
 
-                    if (!legal) {
-                        currentPlayer.sendRequest(new ServerRequest(
-                                "ILLEGAL_MOVE",
-                                move.getX() + "," + move.getY()));
-                        continue; // retry same player
+                    List<int[]> removedStones = logic.tryMoveWithCaptures(move);
+
+                    if (removedStones == null) {
+                        Message illegalMsg = new Message();
+                        illegalMsg.type = MessageType.INVALID_MOVE;
+                        currentPlayer.sendMessage(illegalMsg);
+                        continue; // retry
                     }
 
-                    room.broadcast(new ServerRequest(
-                            "PLAYER_MOVED",
-                            currentPlayer.getUsername(),
-                            move.getX() + "," + move.getY()));
+                    // Broadcast move + removed stones
+                    Message moveMsg = new Message();
+                    moveMsg.type = MessageType.MOVE;
+                    moveMsg.nick = currentPlayer.username;
+                    moveMsg.move = move;
+                    moveMsg.removedStones = removedStones;
+                    room.broadcast(moveMsg);
 
                     consecutivePasses = 0;
-                }
-
-                broadcastBoard();
-
-                // End condition: double pass
-                if (consecutivePasses >= 2) {
-                    room.broadcast(new ServerRequest(
-                            "GAME_OVER",
-                            "Both players passed consecutively."));
-                    break;
                 }
 
                 // Swap turns
@@ -96,15 +107,34 @@ public class GameSession implements Runnable {
                 otherPlayer = temp;
 
             } catch (InterruptedException e) {
-                room.broadcast(new ServerRequest(
-                        "ERROR", "Game session interrupted."));
+                broadcastError("Game session interrupted.");
                 break;
             }
         }
     }
 
+    /** Broadcast the current board state to all players */
     private void broadcastBoard() {
-        String boardStr = logic.getBoard().boardToString();
-        room.broadcast(new ServerRequest("BOARD_UPDATE", boardStr));
+        Message boardMsg = new Message();
+        boardMsg.type = MessageType.BOARD_UPDATE;
+        boardMsg.board = logic.getBoard();
+        room.broadcast(boardMsg);
+    }
+
+    /** Helper to broadcast a simple text info message */
+    private void broadcastInfo(String text) {
+        Message msg = new Message();
+        msg.type = MessageType.INFO; // add INFO to MessageType
+        msg.nick = text;
+        room.broadcast(msg);
+    }
+
+    /** Helper to broadcast errors */
+    private void broadcastError(String text) {
+        Message msg = new Message();
+        msg.type = MessageType.ERROR;
+        msg.nick = text;
+        room.broadcast(msg);
     }
 }
+

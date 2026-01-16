@@ -1,6 +1,7 @@
 package com.example;
 
 public class ClientCommandProcessor {
+
     private final ClientHandler client;
     private final RoomActionHandler roomHandler;
     private final GameActionHandler gameHandler;
@@ -11,24 +12,44 @@ public class ClientCommandProcessor {
         this.gameHandler = new GameActionHandler(client);
     }
 
-    public void processCommand(NetworkMessage message) {
-        if (!(message instanceof ClientCommand command)) return;
-
-        switch (command.getCommandType()) {
-            case "SET_USERNAME" -> {
-                if (command.getParameters().length > 0) {
-                    client.setUsername(command.getParameters()[0]);
-                    client.sendRequest(new ServerRequest("USERNAME_SET", client.getUsername()));
-                }
-            }
-            case "CREATE_ROOM", "JOIN_ROOM", "LEAVE_ROOM", "LIST_ROOMS",
-                 "PICK_COLOR", "REQUEST_COLOR_CHANGE", "ACCEPT_COLOR_CHANGE", "DECLINE_COLOR_CHANGE", "BEGIN" ->
-                    roomHandler.handleCommand(command);
-
-            case "MOVE", "PASS", "RESIGN" ->
-                    gameHandler.handleCommand(command);
-
-            default -> client.sendRequest(new ServerRequest("UNKNOWN_COMMAND", command.getCommandType()));
+    public void processMessage(Message msg) {
+        switch (msg.type) {
+            case SET_NAME -> handleSetName(msg);
+            //TODO: Add swap thingys
+           case CREATE_ROOM, LIST_ROOMS, LIST_PLAYERS, JOIN, LEAVE_ROOM, PICK_COLOR, BEGIN,
+             SWAP, ACCEPT_SWAP, DECLINE_SWAP, SWAP_ACCEPTED, SWAP_DECLINED ->
+                roomHandler.handleMessage(msg);
+            case MOVE, PASS, RESIGN ->
+                gameHandler.handleMessage(msg);
+            default -> sendUnknownCommand(msg);
         }
     }
+
+    private void handleSetName(Message msg) {
+        if (msg.nick == null || msg.nick.isBlank()) {
+            sendError("Invalid username");
+            return;
+        }
+
+        client.username = msg.nick;
+
+        Message response = new Message();
+        response.type = MessageType.NICK_SET;
+        response.nick = client.username;
+        client.sendMessage(response);
+    }
+
+    private void sendUnknownCommand(Message msg) {
+        Message response = new Message();
+        response.type = MessageType.UNKNOWN;
+        client.sendMessage(response);
+    }
+
+    private void sendError(String text) {
+        Message response = new Message();
+        response.type = MessageType.ERROR;
+        response.nick = text;
+        client.sendMessage(response);
+    }
 }
+

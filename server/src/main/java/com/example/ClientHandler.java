@@ -8,98 +8,82 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class ClientHandler implements Runnable {
+
     private final Socket socket;
-    private final ClientManager manager;
+    private final ClientManager clientManager;
     private final RoomManager roomManager;
-
-    private ObjectOutputStream out;
     private ObjectInputStream in;
+    private ObjectOutputStream out;
+    private boolean running;
 
-    private String username = "Guest";
-    private Room currentRoom = null;
-
+    public String username;
+    private Room currentRoom;
     private final BlockingQueue<PlayerAction> actionQueue = new LinkedBlockingQueue<>();
+    private final ClientCommandProcessor processor;
 
-    private final ClientCommandProcessor commandProcessor;
-
-    public ClientHandler(Socket socket, ClientManager manager, RoomManager roomManager) {
+    public ClientHandler(Socket socket, ClientManager cm, RoomManager rm) {
         this.socket = socket;
-        this.manager = manager;
-        this.roomManager = roomManager;
-        this.commandProcessor = new ClientCommandProcessor(this);
-
-        manager.addClient(this);
+        this.clientManager = cm;
+        this.roomManager = rm;
+        this.processor = new ClientCommandProcessor(this);
+        this.running = true;
 
         try {
             this.out = new ObjectOutputStream(socket.getOutputStream());
             this.in = new ObjectInputStream(socket.getInputStream());
         } catch (IOException e) {
-            System.out.println("Error initializing streams for client " + socket.getInetAddress());
+            Logger.error("Error initializing client streams", e);
         }
+
+        this.username = null;
+        this.currentRoom = null;
+        clientManager.addClient(this);
     }
 
     @Override
     public void run() {
         try {
-            while (true) {
+            while (running) {
                 Object obj = in.readObject();
-                if (obj instanceof NetworkMessage message) {
-                    commandProcessor.processCommand(message);
+                if (obj instanceof Message msg) {
+                    processor.processMessage(msg);
                 }
             }
         } catch (Exception e) {
-            System.out.println("Client disconnected: " + socket.getInetAddress());
+            Logger.error("Client disconnected: " + socket.getInetAddress(), e);
         } finally {
-            manager.removeClient(this);
-            roomManager.leaveRoom(this);
-            close();
+            cleanup();
         }
     }
 
-    /* =========================
-       Player action handling
-       ========================= */
-
-    public void submitAction(PlayerAction action) {
-        actionQueue.offer(action);
-    }
-
-    public PlayerAction waitForAction() throws InterruptedException {
-        return actionQueue.take(); // blocks safely
-    }
-
-    /* =========================
-       Networking
-       ========================= */
-
-    public void sendRequest(ServerRequest request) {
+    public void sendMessage(Message msg) {
         try {
-            out.writeObject(request);
+            out.writeObject(msg);
             out.flush();
         } catch (IOException e) {
-            System.out.println("Failed to send request to client " + socket.getInetAddress());
+            Logger.error("Failed to send message to client", e);
         }
     }
 
-    public void close() {
+    public void submitAction(PlayerAction action) { actionQueue.offer(action); }
+    public PlayerAction waitForAction() throws InterruptedException { return actionQueue.take(); }
+
+    public Room getCurrentRoom() { return currentRoom; }
+    public void setCurrentRoom(Room room) { this.currentRoom = room; }
+    public RoomManager getRoomManager() {
+        return this.roomManager;
+    }
+
+
+    private void cleanup() {
+        running = false;
+        clientManager.removeClient(this);
+        if (currentRoom != null) currentRoom.leave(this);
         try {
             in.close();
             out.close();
             socket.close();
-        } catch (IOException e) {
-            System.out.println("Error closing client " + socket.getInetAddress());
-        }
+        } catch (IOException ignored) {}
     }
-
-    /* =========================
-       Getters / setters
-       ========================= */
-
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
-
-    public Room getCurrentRoom() { return currentRoom; }
-    public void setCurrentRoom(Room room) { this.currentRoom = room; }
-
-    public RoomManager getRoomManager() { return roomManager; }
 }
+

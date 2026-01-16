@@ -17,9 +17,7 @@ public class RoomManager {
     }
 
     public synchronized boolean joinRoom(String roomId, ClientHandler client) {
-        if (client.getCurrentRoom() != null) {
-            return false;
-        }
+        if (client.getCurrentRoom() != null) return false;
 
         Room room = rooms.get(roomId);
         if (room != null) {
@@ -34,20 +32,21 @@ public class RoomManager {
 
     public synchronized void leaveRoom(ClientHandler client) {
         Room room = client.getCurrentRoom();
-        if (room == null)
-            return;
+        if (room == null) return;
 
-        room.leave(client); // remove player
+        room.leave(client);
         client.setCurrentRoom(null);
 
         if (room.getPlayers().isEmpty()) {
-            // No players left → remove room
             rooms.remove(room.getRoomId());
         } else if (room.getOwner() == client) {
-            // Owner left → transfer ownership to the first remaining player
             ClientHandler newOwner = room.getPlayers().get(0);
-            room.setOwner(newOwner); // Need to add setter in Room class
-            room.broadcast(new ServerRequest("NEW_OWNER", newOwner.getUsername()));
+            room.setOwner(newOwner);
+
+            Message m = new Message();
+            m.type = MessageType.NEW_OWNER; // <-- add this to MessageType
+            m.nick = newOwner.username;
+            room.broadcast(m);
         }
     }
 
@@ -62,7 +61,7 @@ public class RoomManager {
     private String generateUniqueId() {
         String id;
         do {
-            id = UUID.randomUUID().toString().substring(0, 8); // short ID
+            id = UUID.randomUUID().toString().substring(0, 8);
         } while (rooms.containsKey(id));
         return id;
     }
@@ -73,3 +72,4 @@ public class RoomManager {
                 .collect(Collectors.toList());
     }
 }
+

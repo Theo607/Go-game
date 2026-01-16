@@ -3,6 +3,7 @@ package com.example;
 import java.util.List;
 
 public class RoomActionHandler {
+
     private final ClientHandler client;
     private final RoomManager roomManager;
 
@@ -11,204 +12,190 @@ public class RoomActionHandler {
         this.roomManager = client.getRoomManager();
     }
 
-    private boolean checkUsernameSet() {
-        if ("Guest".equals(client.getUsername())) {
-            client.sendRequest(
-                    new ServerRequest("ERROR", "You must set your username before joining or creating a room."));
-            return false;
-        }
-        return true;
-    }
-
-    public void handleCommand(ClientCommand command) {
-        // Normalize: trim and uppercase
-        String cmdType = command.getCommandType().trim().toUpperCase();
-
-        switch (cmdType) {
-            case "BEGIN" -> handleBeginGame();
-            case "CREATE_ROOM" -> handleCreateRoom(command);
-            case "JOIN_ROOM" -> handleJoinRoom(command);
-            case "LEAVE_ROOM" -> handleLeaveRoom();
-            case "LIST_ROOMS" -> handleListRooms();
-            case "PICK_COLOR" -> handlePickColor(command);
-            case "REQUEST_COLOR_CHANGE" -> handleRequestColorChange();
-            case "ACCEPT_COLOR_CHANGE" -> handleAcceptColorChange();
-            case "DECLINE_COLOR_CHANGE" -> handleDeclineColorChange();
-            default -> client.sendRequest(new ServerRequest("UNKNOWN_COMMAND", command.getCommandType()));
+    public void handleMessage(Message msg) {
+        switch (msg.type) {
+            case CREATE_ROOM -> handleCreateRoom(msg.roomName);
+            case LIST_ROOMS -> handleListRooms();
+            case LIST_PLAYERS -> handleListPlayers();
+            case JOIN -> handleJoinRoom(msg.roomName); // reuse roomName as roomId
+            case LEAVE_ROOM -> handleLeaveRoom();
+            case PICK_COLOR -> handlePickColor(msg.color);
+            case SWAP -> handleSwapRequest();
+            case ACCEPT_SWAP -> handleSwapAccept();
+            case DECLINE_SWAP -> handleSwapDecline();
+            case BEGIN -> handleBeginGame();
+            default -> sendUnknown(msg);
         }
     }
 
-    private void handleBeginGame() {
-        Room room = client.getCurrentRoom();
-        if (room == null) {
-            client.sendRequest(new ServerRequest("ERROR", "You are not in a room."));
+    private void handleCreateRoom(String roomName) {
+        if (client.username == null || client.username.isBlank()) {
+            sendError("You must set a username before creating a room.");
             return;
         }
+        Room room = roomManager.createRoom(roomName, client);
+        roomManager.joinRoom(room.getRoomId(), client);
 
-        if (!room.isOwner(client)) {
-            client.sendRequest(new ServerRequest("ERROR", "Only the room owner can start the game."));
-            return;
-        }
-
-        if (!room.colorsChosen()) {
-            client.sendRequest(new ServerRequest("ERROR", "Both players must pick colors before starting."));
-            return;
-        }
-
-        if (room.isStarted()) {
-            client.sendRequest(new ServerRequest("ERROR", "Game has already started."));
-            return;
-        }
-
-        // Mark the room as started
-        room.start();// you might need to add a setter for this in Room
-
-        room.broadcast(new ServerRequest("GAME_STARTED"));
-
-        // Start a new game session thread
-        GameSession session = new GameSession(room);
-        new Thread(session).start();
+        Message response = new Message();
+        response.type = MessageType.ROOM_CREATED;
+        response.roomName = room.getRoomName();
+        client.sendMessage(response);
     }
 
-    private void handleCreateRoom(ClientCommand command) {
-        if (!checkUsernameSet())
-            return;
-        if (command.getParameters().length >= 1) {
-            String roomName = command.getParameters()[0];
-            Room room = client.getCurrentRoom() != null ? client.getCurrentRoom()
-                    : client.getCurrentRoom() == null ? roomManager.createRoom(roomName, client) : null;
-            roomManager.joinRoom(room.getRoomId(), client);
-            client.sendRequest(new ServerRequest("ROOM_CREATED", room.getRoomName(), room.getRoomId()));
-        } else {
-            client.sendRequest(new ServerRequest("USAGE", "CREATE_ROOM <roomName>"));
-        }
-    }
-
-    private void handleJoinRoom(ClientCommand command) {
-        if (!checkUsernameSet())
-            return;
-        if (command.getParameters().length == 0) {
-            client.sendRequest(new ServerRequest("USAGE", "JOIN_ROOM <roomId>"));
-            return;
-        }
-
-        String roomId = command.getParameters()[0];
-        boolean success = roomManager.joinRoom(roomId, client);
-
-        if (success) {
-            client.sendRequest(new ServerRequest("JOINED_ROOM", roomId));
-        } else {
-            client.sendRequest(new ServerRequest("JOIN_ROOM_FAILED", roomId));
-        }
+    private void handleJoinRoom(String roomId) {
+        if (roomManager.joinRoom(roomId, client)) {
+            Message response = new Message();
+            response.type = MessageType.JOIN;
+            response.roomName = roomId;
+            client.sendMessage(response);
+        } else sendError("Failed to join room.");
     }
 
     private void handleLeaveRoom() {
         Room room = client.getCurrentRoom();
-        if (room == null) {
-            client.sendRequest(new ServerRequest("NOT_IN_ROOM"));
-            return;
-        }
-
-        roomManager.leaveRoom(client);
-        client.sendRequest(new ServerRequest("LEFT_ROOM", room.getRoomName()));
+        if (room != null) {
+            roomManager.leaveRoom(client);
+            Message response = new Message();
+            response.type = MessageType.LEAVE_ROOM;
+            response.roomName = room.getRoomName();
+            client.sendMessage(response);
+        } else sendError("You are not in a room.");
     }
 
     private void handleListRooms() {
-        Room room = client.getCurrentRoom();
-        if (room != null) {
-            // Player is in a room → list players with roles and colors
-            StringBuilder sb = new StringBuilder();
-            for (ClientHandler p : room.getPlayers()) {
-                String role = room.isOwner(p) ? "Owner" : "Player";
-                Color color = room.getColor(p);
-                String colorStr = switch (color) {
-                    case BLACK -> "(B)";
-                    case WHITE -> "(W)";
-                    default -> "(N)";
-                };
-                sb.append(role).append(" ").append(p.getUsername()).append(" ").append(colorStr).append("\n");
-            }
-            client.sendRequest(new ServerRequest("ROOM_PLAYERS", sb.toString().trim()));
-        } else {
-            // Player not in a room → list rooms
-            List<String> rooms = roomManager.listRooms();
-            if (rooms.isEmpty()) {
-                client.sendRequest(new ServerRequest("NO_ROOMS_AVAILABLE"));
-            } else {
-                StringBuilder sb = new StringBuilder();
-                for (String r : rooms) {
-                    sb.append(r).append("\n");
-                }
-                client.sendRequest(new ServerRequest("AVAILABLE_ROOMS", sb.toString().trim()));
-            }
-        }
+        List<String> rooms = roomManager.listRooms();
+        Message response = new Message();
+        response.type = MessageType.ROOM_LIST;
+        response.roomList = rooms.toArray(new String[0]);
+        client.sendMessage(response);
     }
 
-    private void handlePickColor(ClientCommand command) {
-        Room room = client.getCurrentRoom();
-        if (room == null) {
-            client.sendRequest(new ServerRequest("NOT_IN_ROOM"));
+    private void handleListPlayers() {
+        Room current = client.getCurrentRoom();
+        if (current == null) {
+            sendError("You are not in a room.");
             return;
         }
 
-        if (room.isStarted()) {
-            client.sendRequest(new ServerRequest("GAME_ALREADY_STARTED"));
-            return;
-        }
-
-        if (command.getParameters().length == 0) {
-            client.sendRequest(new ServerRequest("USAGE", "PICK_COLOR <BLACK|WHITE>"));
-            return;
-        }
-
-        Color color;
-        try {
-            color = Color.valueOf(command.getParameters()[0]);
-        } catch (IllegalArgumentException e) {
-            client.sendRequest(new ServerRequest("INVALID_COLOR"));
-            return;
-        }
-
-        boolean success = room.pickColor(client, color);
-        if (success) {
-            room.broadcast(new ServerRequest("COLOR_PICKED", client.getUsername(), color.name()));
-        } else {
-            client.sendRequest(new ServerRequest("COLOR_UNAVAILABLE"));
-        }
+        Message response = new Message();
+        response.type = MessageType.PLAYER_LIST;
+        response.playerNames = current.getPlayerNicks(); 
+        client.sendMessage(response);
     }
 
-    private void handleRequestColorChange() {
+
+    // UPDATED: use StoneColor instead of Color
+    private void handlePickColor(StoneColor color) {
         Room room = client.getCurrentRoom();
-        if (room == null || room.isStarted()) {
-            client.sendRequest(new ServerRequest("CANNOT_CHANGE_COLOR_NOW"));
+        if (room == null) { 
+            sendError("You are not in a room."); 
+            return; 
+        }
+
+        if (room.pickColor(client, color)) {
+            Message msg = new Message();
+            msg.type = MessageType.PICK_COLOR;
+            msg.color = color;
+            msg.nick = client.username;
+            room.broadcast(msg);
+        } else sendError("Color not available.");
+    }
+
+    private void handleSwapRequest() {
+        Room room = client.getCurrentRoom();
+        if (room == null || room.getPlayer() == null) {
+            sendError("Cannot swap colors: you are not in a full room.");
+            return;
+        }
+
+        // Check if a swap is already requested
+        if (room.getColorChangeRequester() != null) {
+            sendError("There is already a swap request pending.");
             return;
         }
 
         room.setColorChangeRequester(client);
-        room.broadcast(new ServerRequest("COLOR_CHANGE_REQUEST", client.getUsername()));
+
+        // Notify the other player
+        ClientHandler other = (client == room.getOwner()) ? room.getPlayer() : room.getOwner();
+        Message m = new Message();
+        m.type = MessageType.SWAP;
+        m.nick = client.username; // who requested swap
+        other.sendMessage(m);
+
+        Logger.info(client.username + " requested a color swap.");
     }
 
-    private void handleAcceptColorChange() {
+    private void handleSwapAccept() {
         Room room = client.getCurrentRoom();
-        if (room == null || !room.canRespondToColorChange(client)) {
-            client.sendRequest(new ServerRequest("CANNOT_ACCEPT_COLOR_CHANGE"));
+        ClientHandler requester = room.getColorChangeRequester();
+        if (requester == null) {
+            sendError("No swap request to accept.");
             return;
         }
 
-        ClientHandler requester = room.getColorChangeRequester();
+        // Only the other player can accept
+        if (requester == client) {
+            sendError("You cannot accept your own swap request.");
+            return;
+        }
+
+        // Perform the swap
         room.swapColors(requester, client);
         room.clearColorChangeRequest();
-        room.broadcast(new ServerRequest("COLORS_SWAPPED"));
+
+        Message m = new Message();
+        m.type = MessageType.SWAP_ACCEPTED;
+        room.broadcast(m);
+
+        Logger.info("Color swap accepted between " + requester.username + " and " + client.username);
     }
 
-    private void handleDeclineColorChange() {
+    private void handleSwapDecline() {
         Room room = client.getCurrentRoom();
-        if (room == null || room.getColorChangeRequester() == null) {
-            client.sendRequest(new ServerRequest("NO_COLOR_CHANGE_REQUEST_PENDING"));
+        ClientHandler requester = room.getColorChangeRequester();
+        if (requester == null) {
+            sendError("No swap request to decline.");
             return;
         }
 
         room.clearColorChangeRequest();
-        room.broadcast(new ServerRequest("COLOR_CHANGE_DECLINED"));
+
+        Message m = new Message();
+        m.type = MessageType.SWAP_DECLINED;
+        requester.sendMessage(m); // notify requester
+
+        Logger.info(client.username + " declined color swap from " + requester.username);
+    }
+
+    private void handleBeginGame() {
+        Room room = client.getCurrentRoom();
+        if (room == null || !room.isOwner(client) || !room.colorsChosen()) {
+            sendError("Cannot start game yet.");
+            return;
+        }
+
+        room.start();
+        room.broadcast(buildMessage(MessageType.BEGIN, "Game started!"));
+        new Thread(new GameSession(room)).start();
+    }
+
+    private void sendUnknown(Message msg) {
+        sendError("Unknown room command: " + msg.type);
+    }
+
+    private void sendError(String text) {
+        Message m = new Message();
+        m.type = MessageType.ERROR;
+        m.nick = text; // reuse nick/message field for errors
+        client.sendMessage(m);
+    }
+
+    private Message buildMessage(MessageType type, String... params) {
+        Message m = new Message();
+        m.type = type;
+        if (params.length > 0) m.nick = params[0];
+        return m;
     }
 }
+

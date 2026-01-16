@@ -1,0 +1,238 @@
+package com.example;
+
+import java.io.Serializable;
+
+public class Board implements Serializable{
+    private int size = 19;
+    private final StoneColor[][] field;
+
+    public Board(int lines) {
+        this.size = lines;
+        field = new StoneColor[size][size];
+
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                field[i][j] = StoneColor.EMPTY_STONE;
+            }
+        }
+    }
+
+    private boolean inBound(int n) {
+        return n >= 1 && n <= size;
+    }
+
+    // Assuming 1 <= x, y <= size
+    public StoneColor getInterSec(int row, int column) {
+        if (inBound(row) && inBound(column)) {
+            return field[row - 1][column - 1];
+        }
+        throw new IndexOutOfBoundsException("Coordinates out of bounds: row = " + row + ", column = " + column);
+    }
+
+    public void setInterSec(int row, int column, StoneColor state) {
+        if (inBound(row) && inBound(column)) {
+            field[row - 1][column - 1] = state;
+        } else {
+            throw new IndexOutOfBoundsException("Coordinates out of bounds: row = " + row + ", column = " + column);
+        }
+    }
+
+    public String boardToString() {
+      StringBuilder sb = new StringBuilder();
+
+      sb.append("    ");
+      for (int col = 1; col <= size; col++) {
+          sb.append(col).append("   ");
+      }
+      sb.append("\n");
+
+      for (int row = 1; row <= size; row++) {
+
+          sb.append(String.format("%3d ", row));
+          for (int col = 1; col <= size; col++) {
+              StoneColor field = getInterSec(row, col);
+
+              char c;
+              switch (field) {
+                  case StoneColor.BLACK_STONE -> c = 'X';
+                  case StoneColor.WHITE_STONE -> c = 'O';
+                  default -> c = '+';
+              }
+
+              sb.append(c);
+
+              if (col < size) {
+                  sb.append("---");
+              }
+          }
+          sb.append("\n");
+
+          if (row < size) {
+              sb.append("    ");
+              for (int col = 1; col <= size; col++) {
+                  sb.append("|");
+                  if (col < size) sb.append("   ");
+              }
+              sb.append("\n");
+          }
+      }
+
+      return sb.toString();
+  }
+
+    public int getSize() {
+        return size;
+    }
+}
+package com.example;
+
+import com.example.exceptions.IncorrectBoardSize;
+import com.example.exceptions.EmptyMove;
+import java.util.Stack;
+
+public class Game {
+    private Board currentPosition;
+    private Stack<Move> pastMoves;
+    private Move currentMove;
+
+    public Game(int boardSize) throws IncorrectBoardSize {
+        if (boardSize < 2) throw new IncorrectBoardSize("The board size cannot be smaller than 2.");
+        currentPosition = new Board(boardSize);
+        pastMoves = new Stack<>();
+        currentMove = null;
+    }
+
+    public Board getCurrPosition() {
+        return currentPosition;
+    }
+
+    public void setCurrentMove(Move candidateMove) {
+        currentMove = candidateMove;
+    }
+
+    public void acceptMove() throws EmptyMove {
+        if (currentMove == null) throw new EmptyMove("The move you tried to accept was empty.");
+        pastMoves.push(currentMove);
+    }
+
+    public void declineMove() {
+        currentMove = null;
+    }
+}
+package com.example;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+public class Logger {
+    public enum Level {
+        INFO, WARN, ERROR, DEBUG
+    }
+
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    private static volatile Level currentLevel = Level.INFO;
+
+    private Logger() { /*no instanes*/ }
+
+    public static void setLevel(Level level) {
+        currentLevel = level;
+    }
+
+    private static synchronized void log(Level level, String message, Throwable throwable) {
+        if(level.ordinal() < currentLevel.ordinal()) {
+            return;
+        }
+        String timestamp = LocalDateTime.now().format(formatter);
+        String thread_name = Thread.currentThread().getName();
+
+        System.out.printf(
+                "[%s] [%s] [%s] %s%n",
+                timestamp,
+                level,
+                thread_name,
+                message
+                );
+
+        if(throwable != null) {
+            throwable.printStackTrace(System.out);
+        }
+    }
+
+    public static void info(String message) {
+        log(Level.INFO, message, null);
+    }
+    public static void warn(String message) {
+        log(Level.WARN, message, null);
+    }
+    public static void error(String message) {
+        log(Level.ERROR, message, null);
+    }
+    public static void error(String message, Throwable throwable) {
+        log(Level.ERROR, message, throwable);
+    }
+    public static void debug(String message) {
+        log(Level.DEBUG, message, null);
+    }
+}
+package com.example;
+
+import java.io.Serializable;
+
+public class Message implements Serializable {
+    public MessageType type;
+    public Board board;
+    public String nick;
+    public String roomName;
+    public String[] playerNames;
+    public String[] roomList;
+    public StoneColor color;
+    public Move move;
+    public String error;
+}
+package com.example;
+
+import java.io.Serializable;
+
+public enum MessageType implements Serializable {
+    // Server -> Client
+    BOARD_UPDATE, INVALID_MOVE, SWAP_DECLINED,
+    SWAP_ACCEPTED, ROOM_CREATED, ROOM_ERROR,  
+    NICK_SET, GAME_WON, GAME_LOST, GAME_TIED,
+    ROOM_LIST, PLAYER_LIST, USERNAME_NOT_SET,
+    NEW_OWNER, YOUR_TURN,
+    // Client -> Server
+    LIST_ROOMS, LIST_PLAYERS, SET_NAME,
+    CREATE_ROOM, SWAP, ACCEPT_SWAP, DECLINE_SWAP,
+    MOVE, PASS, RESIGN, JOIN, PICK_COLOR, BEGIN,
+    LEAVE_ROOM,
+    // Additional
+    UNKNOWN, ERROR, INFO
+}
+package com.example;
+
+import java.io.Serializable;
+import com.example.exceptions.InvalidMove;
+
+public class Move implements Serializable {
+    private int x;
+    private int y;
+    private StoneColor state;
+
+    public Move(int x, int y, StoneColor colour) throws InvalidMove {
+        if (x < 1 || y < 1) throw new InvalidMove("This move has invalid coordinates.");
+        this.x = x;
+        this.y = y;
+        this.state = colour;
+    }
+
+    public int getX() { return x; }
+    public int getY() { return y; }
+    public StoneColor getState() { return state; }
+}
+
+package com.example;
+
+public enum StoneColor{
+    WHITE_STONE, BLACK_STONE, EMPTY_STONE
+}
