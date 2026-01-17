@@ -1,5 +1,7 @@
 package com.example;
 
+import javafx.application.Application;
+
 public class Client {
 
     public static void main(String[] args) {
@@ -14,15 +16,17 @@ public class Client {
                     Logger.error("Failed to start console client.", e);
                 }
             }
+
             case "gui" -> {
-                Logger.info("GUI client not implemented yet. Starting console client instead.");
+                Logger.info("Starting GUI client...");
                 try {
-                    ConsoleClient client = new ConsoleClient("localhost", 1664);
-                    client.start();
+                    // Launch JavaFX application
+                    Application.launch(GoFXClient.class, args);
                 } catch (Exception e) {
-                    Logger.error("Failed to start console client.", e);
+                    Logger.error("Failed to start GUI client.", e);
                 }
             }
+
             default -> {
                 Logger.info("Unknown mode '" + mode + "'. Starting console client by default.");
                 try {
@@ -35,4 +39,3 @@ public class Client {
         }
     }
 }
-
