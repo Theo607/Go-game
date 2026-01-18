@@ -1,8 +1,8 @@
 package com.example;
 
-import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Room {
@@ -13,6 +13,7 @@ public class Room {
     private boolean started = false;
     private final Map<ClientHandler, StoneColor> colors = new HashMap<>();
     private ClientHandler colorChangeRequester = null;
+    private Board board;
 
     private GameLogic gameLogic; // Holds the board and rules
 
@@ -56,10 +57,14 @@ public class Room {
     }
 
     public synchronized void start() {
-        if (!started && owner != null && player != null) {
-            started = true;
-        }
-        this.gameLogic = new GameLogic(this);
+        if (started)
+            return;
+        if (owner == null || player == null)
+            return;
+        if (!colorsChosen())
+            return;
+        this.gameLogic = new GameLogic(board);
+        this.started = true;
     }
 
     public boolean isStarted() { return started; }

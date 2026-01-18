@@ -5,8 +5,12 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 public class GoFXClient extends Application {
@@ -321,8 +325,8 @@ public class GoFXClient extends Application {
 
                     // Remove captured stones
                     if (msg.removedStones != null) {
-                        for (int[] pos : msg.removedStones) {
-                            localBoard.setInterSec(pos[0], pos[1], StoneColor.EMPTY_STONE);
+                        for (Point p : msg.removedStones) {
+                            localBoard.setInterSec(p.x(), p.y(), StoneColor.EMPTY_STONE);
                         }
                     }
 

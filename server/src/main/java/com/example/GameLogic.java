@@ -1,6 +1,11 @@
 package com.example;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class GameLogic {
 
@@ -12,6 +17,10 @@ public class GameLogic {
         this.previousBoard = null;
     }
 
+    public Board getBoard() {
+        return board;
+    }
+    
     public MoveResult tryMove(Move move) {
         int x = move.getX();
         int y = move.getY();
@@ -48,7 +57,7 @@ public class GameLogic {
         //KO rule
         if (previousBoard != null && board.equals(previousBoard)) {
             board.restoreFrom(snapshot);
-            return MoveResult(MoveError.KO);
+            return MoveResult.illegal(MoveError.KO);
         }
 
         previousBoard = snapshot;

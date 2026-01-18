@@ -87,7 +87,7 @@ public class GameSession implements Runnable {
                     Move move = action.getMove();
                     move.setState(room.getColor(currentPlayer));
 
-                    List<int[]> removedStones = logic.tryMoveWithCaptures(move);
+                    List<Point> removedStones = logic.tryMove(move).getCaptured();
 
                     if (removedStones == null) {
                         Message illegalMsg = new Message();

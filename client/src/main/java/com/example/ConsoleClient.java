@@ -2,7 +2,6 @@ package com.example;
 
 import java.io.IOException;
 import java.util.Scanner;
-import java.util.concurrent.Executors;
 
 public class ConsoleClient {
 
@@ -186,8 +185,8 @@ public class ConsoleClient {
 
                 // Remove captured stones if any
                 if (msg.removedStones != null) {
-                    for (int[] pos : msg.removedStones) {
-                        localBoard.setInterSec(pos[0], pos[1], StoneColor.EMPTY_STONE);
+                    for (Point p : msg.removedStones) {
+                        localBoard.setInterSec(p.x(), p.y(), StoneColor.EMPTY_STONE);
                     }
                 }
 
