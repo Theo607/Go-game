@@ -1,15 +1,21 @@
 package com.example;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 public class GameSession implements Runnable {
 
     private final Room room;
     private final GameLogic logic;
 
+    private final Map<StoneColor, Integer> prisoners = new HashMap<>();
+
     public GameSession(Room room) {
         this.room = room;
         this.logic = room.getGameLogic();
+        prisoners.put(StoneColor.BLACK_STONE, 0);
+        prisoners.put(StoneColor.WHITE_STONE, 0);
     }
 
     @Override
@@ -136,5 +142,28 @@ public class GameSession implements Runnable {
         msg.nick = text;
         room.broadcast(msg);
     }
-}
 
+    private void addPrisoners(List<Point> captured, StoneColor capturedColor) {
+        int current = prisoners.getOrDefault(capturedColor,0);
+        prisoners.put(capturedColor, current + captured.size());
+    }
+
+    public Map<StoneColor, Integer> getPrisoners() {
+        return Map.copyOf(prisoners);
+    }
+
+    private void endGameByPass() {
+
+        broadcastInfo("Game ended by consecutive passes");
+
+        Map<StoneColor, Integer> finalScore = logic.countTerritory(getPrisoners());
+        int blackPoints = finalScore.get(StoneColor.BLACK_STONE);
+        int whitePoints = finalScore.get(StoneColor.WHITE_STONE);
+
+        Message result = new Message();
+        result.type = MessageType.GAME_RESULT;
+        result.blackScore = blackPoints;
+        result.whiteScore = whitePoints;
+        room.broadcast(result);
+    }
+}

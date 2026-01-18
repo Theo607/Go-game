@@ -28,6 +28,7 @@ public enum MessageType implements Serializable {
     GAME_WON,
     GAME_LOST,
     GAME_TIED,
+    GAME_RESULT,
     UNKNOWN,
     NEW_OWNER,
     INFO,

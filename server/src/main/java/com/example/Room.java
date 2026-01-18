@@ -24,7 +24,7 @@ public class Room {
         owner.setCurrentRoom(this);
         colors.put(owner, StoneColor.EMPTY_STONE);
     }
-
+  
     public synchronized boolean join(ClientHandler client) {
         if (client == owner) return false; // owner already in room
         if (player == null) {

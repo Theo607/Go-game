@@ -2,6 +2,7 @@ package com.example;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 public class Message implements Serializable {
     public MessageType type;
@@ -14,4 +15,5 @@ public class Message implements Serializable {
     public Move move;
     public String error;
     public List<int[]> removedStones;
+    public Map<StoneColor, Integer> scores;
 }

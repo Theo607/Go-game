@@ -3,7 +3,7 @@ package com.example;
 import java.io.Serializable;
 
 public class Board implements Serializable{
-    private int size = 19;
+    private final int size;
     private final StoneColor[][] field;
 
     public Board(int lines) {
@@ -17,20 +17,20 @@ public class Board implements Serializable{
         }
     }
 
-    private boolean inBound(int n) {
-        return n >= 1 && n <= size;
+    public boolean inBounds(int row, int col) {
+        return row >= 1 && row <= size && col >= 1 && col <= size;
     }
 
     // Assuming 1 <= x, y <= size
     public StoneColor getInterSec(int row, int column) {
-        if (inBound(row) && inBound(column)) {
+        if (inBounds(row, column)) {
             return field[row - 1][column - 1];
         }
         throw new IndexOutOfBoundsException("Coordinates out of bounds: row = " + row + ", column = " + column);
     }
 
     public void setInterSec(int row, int column, StoneColor state) {
-        if (inBound(row) && inBound(column)) {
+        if (inBounds(row,column)) {
             field[row - 1][column - 1] = state;
         } else {
             throw new IndexOutOfBoundsException("Coordinates out of bounds: row = " + row + ", column = " + column);
@@ -67,4 +67,45 @@ public class Board implements Serializable{
     public int getSize() {
         return size;
     }
+
+    public Board copy() {
+        Board copy = new Board(size);
+        for (int r = 1; r <= size; r++) {
+            for (int c = 1; c <= size; c++) {
+                copy.setInterSec(r, c, getInterSec(r, c));
+            }
+        }
+        return copy;
+    }
+
+    public void restoreFrom(Board other) {
+        for (int r = 1; r <= size; r++) {
+            for (int c = 1; c <= size; c++) {
+                setInterSec(r, c, other.getInterSec(r, c));
+            }
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (!(o instanceof Board b))
+            return false;
+        if (size != b.size)
+            return false;
+
+        for (int i = 1; i <= size; i++) {
+            for (int j = 1; j <= size; j++) {
+                if (getInterSec(i, j) != b.getInterSec(i, j))
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    /*@Override
+    public int hashCode() {
+        return Objects.hash(size);
+    }*/
 }
