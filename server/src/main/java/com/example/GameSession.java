@@ -1,8 +1,8 @@
 package com.example;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 
 public class GameSession implements Runnable {
 
@@ -67,12 +67,11 @@ public class GameSession implements Runnable {
                 // Pass
                 if (action.isPass()) {
                     broadcastInfo(currentPlayer.username + " passed.");
+                    broadcastBoard();
                     consecutivePasses++;
 
                     if (consecutivePasses >= 2) {
-                        Message tie = new Message();
-                        tie.type = MessageType.GAME_TIED;
-                        room.broadcast(tie);
+                        endGameByPass();
                         break; // exit loop immediately
                     }
 
@@ -104,6 +103,9 @@ public class GameSession implements Runnable {
                     moveMsg.removedStones = removedStones;
                     room.broadcast(moveMsg);
 
+                    addPrisoners(removedStones, room.getColor(currentPlayer));
+                    //broadcastBoard();
+
                     consecutivePasses = 0;
                 }
 
@@ -121,6 +123,8 @@ public class GameSession implements Runnable {
 
     /** Broadcast the current board state to all players */
     private void broadcastBoard() {
+        System.out.println("[SERVER] Broadcasting board");
+        
         Message boardMsg = new Message();
         boardMsg.type = MessageType.BOARD_UPDATE;
         boardMsg.board = logic.getBoard();
@@ -144,7 +148,7 @@ public class GameSession implements Runnable {
     }
 
     private void addPrisoners(List<Point> captured, StoneColor capturedColor) {
-        int current = prisoners.getOrDefault(capturedColor,0);
+        int current = prisoners.getOrDefault(capturedColor, 0);
         prisoners.put(capturedColor, current + captured.size());
     }
 

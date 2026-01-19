@@ -168,13 +168,14 @@ public class ConsoleClient {
             case BEGIN -> {
                 Logger.info("Game started! Board is ready."); 
                 localBoard = new Board(19);
+                Logger.info("\n" + localBoard.boardToString());
             }
             case YOUR_TURN -> Logger.info("It's your turn.");
             case INVALID_MOVE -> Logger.info("Invalid move.");
             case MOVE -> {
                 if (localBoard == null) {
-                    Logger.warn("Local board not initialized yet!");
-                    break;
+                    Logger.warn("Local board not initialized yet! Creating new board of size 19");
+                    localBoard = new Board(19);
                 }
 
                 // Apply the placed stone
@@ -195,12 +196,16 @@ public class ConsoleClient {
             }
             case BOARD_UPDATE -> {
                 // Optionally, for synchronization
+                if (localBoard == null && msg.board != null) {
+                    localBoard = new Board(msg.board.getSize());
+                }
                 if (msg.board != null) {
                     for (int r = 1; r <= localBoard.getSize(); r++) {
                         for (int c = 1; c <= localBoard.getSize(); c++) {
                             localBoard.setInterSec(r, c, msg.board.getInterSec(r, c));
                         }
                     }
+                    Logger.info("Board updated:");
                     Logger.info("\n" + localBoard.boardToString());
                 }
             }

@@ -14,6 +14,7 @@ public class Room {
     private final Map<ClientHandler, StoneColor> colors = new HashMap<>();
     private ClientHandler colorChangeRequester = null;
     private Board board;
+    private ClientHandler currentPlayer;
 
     private GameLogic gameLogic; // Holds the board and rules
 
@@ -77,6 +78,10 @@ public class Room {
 
     public void setOwner(ClientHandler newOwner) { this.owner = newOwner; }
 
+    public synchronized ClientHandler getCurrentPlayer() { return currentPlayer; }
+
+    public synchronized void setCurrentPlayer(ClientHandler player) { this.currentPlayer = player; }
+
     // UPDATED: use StoneColor
     public synchronized StoneColor getColor(ClientHandler client) {
         return colors.getOrDefault(client, StoneColor.EMPTY_STONE);
@@ -139,7 +144,6 @@ public class Room {
         return list;
     }
 
-
     // For convenience: get array of nicks with colors
     public String[] getPlayerNicks() {
         String ownerColor = colors.getOrDefault(owner, StoneColor.EMPTY_STONE).name();
@@ -156,6 +160,4 @@ public class Room {
 
         return new String[]{ownerStr, playerStr};
     }
-
 }
-

@@ -25,7 +25,6 @@ public class GameLogic {
         int x = move.getX();
         int y = move.getY();
         StoneColor color = move.getState();
-        int size = board.getSize();
 
         if (!board.inBounds(x, y))
             return MoveResult.illegal(MoveError.OUT_OF_BOUNDS);
@@ -159,7 +158,6 @@ public class GameLogic {
     }
 
     private void exploreEmptyRegion(int x, int y, Set<Point> region, Set<StoneColor> borderingColors, boolean[][] visited) {
-        int size = board.getSize();
         if (!board.inBounds(x, y))
             return;
         if (visited[x-1][y-1])

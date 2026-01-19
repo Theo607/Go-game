@@ -15,12 +15,15 @@ public class ClientCommandProcessor {
     public void processMessage(Message msg) {
         switch (msg.type) {
             case SET_NAME -> handleSetName(msg);
-            //TODO: Add swap thingys
-           case CREATE_ROOM, LIST_ROOMS, LIST_PLAYERS, JOIN, LEAVE_ROOM, PICK_COLOR, BEGIN,
-             SWAP, ACCEPT_SWAP, DECLINE_SWAP, SWAP_ACCEPTED, SWAP_DECLINED ->
+
+            case CREATE_ROOM, LIST_ROOMS, LIST_PLAYERS, JOIN, LEAVE_ROOM, PICK_COLOR,
+                BEGIN, SWAP, ACCEPT_SWAP, DECLINE_SWAP, SWAP_ACCEPTED, SWAP_DECLINED ->
                 roomHandler.handleMessage(msg);
-            case MOVE, PASS, RESIGN ->
+
+            case MOVE, PASS, RESIGN, BOARD_UPDATE, YOUR_TURN, INFO,
+                GAME_RESULT, GAME_WON, GAME_LOST, GAME_TIED, INVALID_MOVE ->
                 gameHandler.handleMessage(msg);
+
             default -> sendUnknownCommand(msg);
         }
     }
@@ -52,4 +55,3 @@ public class ClientCommandProcessor {
         client.sendMessage(response);
     }
 }
-

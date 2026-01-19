@@ -9,8 +9,33 @@ public class GameActionHandler {
     }
 
     public void handleMessage(Message msg) {
-        Room room = client.getCurrentRoom();
 
+        switch (msg.type) {
+            case BOARD_UPDATE -> {
+                System.out.println(msg.board.boardToString());
+                return;
+            }
+            case INFO -> {
+                System.out.println("[INFO] " + msg.nick);
+                return;
+            }
+            case YOUR_TURN -> {
+                System.out.println("Your turn!");
+                return;
+            }
+            case GAME_RESULT -> {
+                System.out.println("Game ended");
+                System.out.println("Black: " + msg.blackScore);
+                System.out.println("White: " + msg.whiteScore);
+                return;
+            }
+            case GAME_WON, GAME_LOST, GAME_TIED -> {
+                System.out.println(msg.type);
+                return;
+            }
+        }
+
+        Room room = client.getCurrentRoom();
         if (room == null || !room.isStarted()) {
             sendError("Game has not started.");
             return;
