@@ -1,9 +1,13 @@
 package com.example;
 
-import com.example.exceptions.IncorrectBoardSize;
-import com.example.exceptions.EmptyMove;
 import java.util.Stack;
 
+import com.example.exceptions.EmptyMove;
+import com.example.exceptions.IncorrectBoardSize;
+
+/**
+ * This class contains stack of all moves made
+ */
 public class Game {
     private Board currentPosition;
     private Stack<Move> pastMoves;

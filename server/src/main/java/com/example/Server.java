@@ -4,6 +4,10 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+/**
+ * Server starts listening on given port
+ * It starts thread and initializes a handler for each client connected
+ */
 public class Server {
     private static final int PORT = 1664;
     private ServerSocket serverSocket;

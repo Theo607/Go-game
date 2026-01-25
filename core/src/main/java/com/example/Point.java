@@ -2,6 +2,9 @@ package com.example;
 
 import java.io.Serializable;
 
+/**
+ * Point is made of two parameters: abscissa and ordinate
+ */
 public class Point implements Serializable {
 
     int x, y;

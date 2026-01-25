@@ -6,6 +6,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * This class manages creating/removing rooms, joining/leaving them, generating unique ID
+ */
 public class RoomManager {
     private final Map<String, Room> rooms = new HashMap<>();
 

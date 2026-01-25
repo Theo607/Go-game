@@ -1,8 +1,12 @@
 package com.example;
 
 import java.io.Serializable;
-import com.example.exceptions.InvalidMove;
 
+import com.example.exceptions.InvalidMove;
+/**
+ * Informations about move - abscissa, ordinate and color of the stone
+ * Getters and setters of these listed above
+ */
 public class Move implements Serializable {
     private int x;
     private int y;

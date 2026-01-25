@@ -2,6 +2,10 @@ package com.example;
 
 import java.util.List;
 
+/**
+ * MoveResult is a class that tells whether the move is legal or not
+ * It can contain a list of stones captured by that move
+ */
 public class MoveResult {
 
     private final boolean legal;

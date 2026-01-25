@@ -4,6 +4,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Handles one Go game session.
+ * Controls turn order, move validation and end conditions
+ */
 public class GameSession implements Runnable {
 
     private final Room room;
@@ -68,7 +72,6 @@ public class GameSession implements Runnable {
                     room.endGame();
                     break;
                 }
-
                 // Pass
                 if (action.isPass()) {
                     broadcastInfo(currentPlayer.username + " passed.");
@@ -92,7 +95,6 @@ public class GameSession implements Runnable {
                     move.setState(room.getColor(currentPlayer));
 
                     MoveResult result = logic.tryMove(move);
-                    
 
                     if (!result.isLegal()) {
                         Message illegalMsg = new Message();
@@ -100,7 +102,6 @@ public class GameSession implements Runnable {
                         currentPlayer.sendMessage(illegalMsg);
                         continue; // retry
                     }
-
                     // Broadcast move + removed stones
                     List<Point> removedStones = result.getCaptured();
                     Message moveMsg = new Message();
@@ -112,10 +113,8 @@ public class GameSession implements Runnable {
 
                     addPrisoners(removedStones, room.getColor(currentPlayer));
                     broadcastBoard();
-
                     consecutivePasses = 0;
                 }
-
                 // Swap turns
                 ClientHandler temp = currentPlayer;
                 currentPlayer = otherPlayer;
@@ -168,9 +167,6 @@ public class GameSession implements Runnable {
     }
 
     private void endGameByPass() {
-
-        //broadcastInfo("Game ended by consecutive passes");
-
         Map<StoneColor, Integer> finalScore = logic.countTerritory(getPrisoners());
         int blackPoints = finalScore.get(StoneColor.BLACK_STONE);
         int whitePoints = finalScore.get(StoneColor.WHITE_STONE);

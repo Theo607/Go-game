@@ -2,6 +2,9 @@ package com.example;
 
 import java.io.Serializable;
 
+/**
+ * This class contains all methods with board - getters, setters, serializing to string etc.
+ */
 public class Board implements Serializable{
     private final int size;
     private final StoneColor[][] field;
@@ -37,6 +40,12 @@ public class Board implements Serializable{
         }
     }
 
+    /**
+     * This method serializes this instance of Board to string
+     * White stones are represented by "O" and black stones by "X"
+     * Empty stones are represented by "."
+     * @return board serialized to string
+     */
     public String boardToString() {
         StringBuilder sb = new StringBuilder();
 
@@ -68,6 +77,10 @@ public class Board implements Serializable{
         return size;
     }
 
+    /**
+     * This method created a copy of this instance of Board
+     * @return created copy
+     */
     public Board copy() {
         Board copy = new Board(size);
         for (int r = 1; r <= size; r++) {
@@ -78,6 +91,10 @@ public class Board implements Serializable{
         return copy;
     }
 
+    /**
+     * This method creates a matrix of StoneColor from this instance of Board
+     * @return created copy
+     */
     public StoneColor[][] getStateCopy() {
         StoneColor[][] copy = new StoneColor[size][size];
         for (int r = 1; r <= size; r++) {
@@ -88,6 +105,10 @@ public class Board implements Serializable{
         return copy;
     }
 
+    /**
+     * This method restores this instance of Board from the given other board
+     * @param other board to restore from
+     */
     public void restoreFrom(Board other) {
         for (int r = 1; r <= size; r++) {
             for (int c = 1; c <= size; c++) {
@@ -96,6 +117,11 @@ public class Board implements Serializable{
         }
     }
 
+    /**
+     * This method checks whether two boards look exactly the same
+     * @param o board to compare this instance with
+     * @return if these boards look the same
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o)
@@ -113,9 +139,4 @@ public class Board implements Serializable{
         }
         return true;
     }
-
-    /*@Override
-    public int hashCode() {
-        return Objects.hash(size);
-    }*/
 }

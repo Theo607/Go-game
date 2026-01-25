@@ -1,5 +1,8 @@
 package com.example;
 
+/**
+ * Handling game-related commands received from client
+ */
 public class GameActionHandler {
 
     private final ClientHandler client;
@@ -8,6 +11,12 @@ public class GameActionHandler {
         this.client = client;
     }
 
+    /**
+     * Informing the client about actions performed
+     * Showing current board, notifying about turns, game results
+     * Adding actions to the queue of actions
+     * @param msg Message to handle
+     */
     public void handleMessage(Message msg) {
 
         switch (msg.type) {
@@ -56,12 +65,6 @@ public class GameActionHandler {
     }
 
     private void handleMove(Message msg, StoneColor stoneColor) throws Exception {
-
-        /*if (move == null) {
-            sendError("Move is missing in the message.");
-            return;
-        }*/
-
         // Ensure the move has the correct color assigned from the player
         Move coloredMove = new Move(msg.x, msg.y, stoneColor);
         client.submitAction(PlayerAction.move(coloredMove));

@@ -2,6 +2,9 @@ package com.example;
 
 import java.io.Serializable;
 
+/**
+ * Enum of types of messages
+ */
 public enum MessageType implements Serializable {
     SET_NAME,
     NICK_SET,

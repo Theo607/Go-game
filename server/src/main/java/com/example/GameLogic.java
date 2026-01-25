@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * This class holds rules of the game
+ */
 public class GameLogic {
 
     private final Board board;
@@ -21,6 +24,11 @@ public class GameLogic {
         return board;
     }
     
+    /**
+     * This method checks, whether proposed move is legal or not
+     * @param move Proposed move
+     * @return MoveResult - with type of error (if it's illegal) or updates the board (if it's legal)
+     */
     public MoveResult tryMove(Move move) {
         int x = move.getX();
         int y = move.getY();
@@ -63,8 +71,6 @@ public class GameLogic {
         return MoveResult.legal(captured);
     }
 
-    /* ===================== GROUP / LIBERTIES ===================== */
-
     private Set<Point> getGroup(Point start) {
         StoneColor color = board.getInterSec(start.x(), start.y());
         Set<Point> group = new HashSet<>();
@@ -100,8 +106,11 @@ public class GameLogic {
         return liberties.size();
     }
 
-    /* ===================== CAPTURE / HELPERS ===================== */
-
+    /**
+     * This method deletes stones that belong to the group given and adds them to list of captured stones
+     * @param group Fields to be emptied
+     * @param captured List of captured stones
+     */
     private void captureGroup(Set<Point> group, List<Point> captured) {
         for (Point p : group) {
             board.setInterSec(p.x(), p.y(), StoneColor.EMPTY_STONE);
@@ -109,6 +118,12 @@ public class GameLogic {
         }
     }
 
+    /**
+     * This method returns list of all neighbours of the point given
+     * It is bounds-sensitive, so it only adds neighbours that are in bounds of the board
+     * @param x abscissa of the point
+     * @param y ordinate of the point
+     */
     private List<Point> neighbors(int x, int y) {
         List<Point> n = new ArrayList<>();
         int size = board.getSize();
@@ -125,14 +140,23 @@ public class GameLogic {
         return n;
     }
 
+    /**
+     * @param c Color of the given stone
+     * @return Opposite color of the given stone
+     */
     private StoneColor opposite(StoneColor c) {
         return c == StoneColor.BLACK_STONE
                 ? StoneColor.WHITE_STONE
                 : StoneColor.BLACK_STONE;
     }
 
-    /* ==================== COUNTING TERRITORY ===================== */
-
+    /**
+     * This method counts territory that belongs to each player after the game is ended
+     * When the EMPTY_STONE is found (and the field hasn't been visited yet), it "explores the empty region"
+     * The size of the region is added to points of the right player
+     * @param prisoners Map of prisoners captured by each player during the game
+     * @return Map of points received by each player (territory + prisoners)
+     */
     public Map<StoneColor, Integer> countTerritory(Map<StoneColor, Integer> prisoners) {
         int size = board.getSize();
         boolean[][] visited = new boolean[size][size];
@@ -159,6 +183,14 @@ public class GameLogic {
         return territory;
     }
 
+    /**
+     * This method creates a set of empty stones, that have potential to be someone's territory
+     * @param x abscissa of the stone
+     * @param y ordinate of the stone
+     * @param region set of empty stones
+     * @param borderingColors set of colors (if there are 2 colors, it means, that the explored territory belongs to nobody)
+     * @param visited so the same field won't be checked more than 1 time
+     */
     private void exploreEmptyRegion(int x, int y, Set<Point> region, Set<StoneColor> borderingColors, boolean[][] visited) {
         if (!board.inBounds(x, y))
             return;

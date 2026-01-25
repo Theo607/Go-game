@@ -1,5 +1,8 @@
 package com.example;
 
+/**
+ * This class specifies the type of performed action - whether it is a move, pass or resign
+ */
 public class PlayerAction {
     private final Move move;    // null if pass
     private final boolean resign;

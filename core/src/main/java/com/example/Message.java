@@ -3,6 +3,9 @@ package com.example;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * Message with all possible attributes
+ */
 public class Message implements Serializable {
     public MessageType type;
     public Board board;

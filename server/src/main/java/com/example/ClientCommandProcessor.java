@@ -1,5 +1,8 @@
 package com.example;
 
+/**
+ * Processes commands received from client
+ */
 public class ClientCommandProcessor {
 
     private final ClientHandler client;
@@ -11,7 +14,11 @@ public class ClientCommandProcessor {
         this.roomHandler = new RoomActionHandler(client);
         this.gameHandler = new GameActionHandler(client);
     }
-
+    /**
+     * Delegates handling messages to handlers made specifically for room and game,
+     * whether message is room- or game-related
+     * @param msg Message to handle
+     */
     public void processMessage(Message msg) {
         switch (msg.type) {
             case SET_NAME -> handleSetName(msg);
@@ -24,7 +31,7 @@ public class ClientCommandProcessor {
                 GAME_WON, GAME_LOST, GAME_TIED, INVALID_MOVE ->
                 gameHandler.handleMessage(msg);
 
-            default -> sendUnknownCommand();//msg);
+            default -> sendUnknownCommand();
         }
     }
 
@@ -42,7 +49,7 @@ public class ClientCommandProcessor {
         client.sendMessage(response);
     }
 
-    private void sendUnknownCommand() {//Message msg) {
+    private void sendUnknownCommand() {
         Message response = new Message();
         response.type = MessageType.UNKNOWN;
         client.sendMessage(response);

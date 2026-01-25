@@ -7,6 +7,11 @@ import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+/**
+ * Receives messages from NetworkClient
+ * Sends them to ClientCommandProcessor
+ * Performs actions from players
+ */
 public class ClientHandler implements Runnable {
 
     private final Socket socket;
@@ -40,6 +45,11 @@ public class ClientHandler implements Runnable {
         clientManager.addClient(this);
     }
 
+    /**
+     * Reading messages from NetworkClient and ClientCommandProcessor
+     * Processing messages received
+     * Closing socket and I/O streams after finishing the work
+     */
     @Override
     public void run() {
         try {
@@ -56,6 +66,9 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    /**
+     * Sending messages to NetworkClient
+     */
     public void sendMessage(Message msg) {
         try {
             out.writeObject(msg);
