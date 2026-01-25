@@ -20,11 +20,11 @@ public class ClientCommandProcessor {
                 BEGIN, SWAP, ACCEPT_SWAP, DECLINE_SWAP, SWAP_ACCEPTED, SWAP_DECLINED ->
                 roomHandler.handleMessage(msg);
 
-            case MOVE, PASS, RESIGN, BOARD_UPDATE, YOUR_TURN, INFO,
-                GAME_RESULT, GAME_WON, GAME_LOST, GAME_TIED, INVALID_MOVE ->
+            case MOVE, PASS, RESIGN, BOARD_UPDATE, YOUR_TURN, INFO, GAME_RESULT,
+                GAME_WON, GAME_LOST, GAME_TIED, INVALID_MOVE ->
                 gameHandler.handleMessage(msg);
 
-            default -> sendUnknownCommand(msg);
+            default -> sendUnknownCommand();//msg);
         }
     }
 
@@ -42,7 +42,7 @@ public class ClientCommandProcessor {
         client.sendMessage(response);
     }
 
-    private void sendUnknownCommand(Message msg) {
+    private void sendUnknownCommand() {//Message msg) {
         Message response = new Message();
         response.type = MessageType.UNKNOWN;
         client.sendMessage(response);

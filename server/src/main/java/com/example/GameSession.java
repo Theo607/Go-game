@@ -43,6 +43,10 @@ public class GameSession implements Runnable {
         broadcastBoard();
 
         while (true) {
+            if (!room.isStarted()) {
+                broadcastError("Game is not active");
+                break;
+            }
             try {
                 // Notify current player it's their turn
                 Message yourTurnMsg = new Message();
@@ -61,20 +65,21 @@ public class GameSession implements Runnable {
                     gameWon.type = MessageType.GAME_WON;
                     currentPlayer.sendMessage(gameLost);
                     otherPlayer.sendMessage(gameWon);
+                    room.endGame();
                     break;
                 }
 
                 // Pass
                 if (action.isPass()) {
                     broadcastInfo(currentPlayer.username + " passed.");
-                    broadcastBoard();
                     consecutivePasses++;
 
                     if (consecutivePasses >= 2) {
                         endGameByPass();
+                        room.endGame();
                         break; // exit loop immediately
                     }
-
+                    broadcastBoard();
                     // skip move logic and swap turns; next iteration handled in loop
                     ClientHandler temp = currentPlayer;
                     currentPlayer = otherPlayer;
@@ -86,9 +91,10 @@ public class GameSession implements Runnable {
                     Move move = action.getMove();
                     move.setState(room.getColor(currentPlayer));
 
-                    List<Point> removedStones = logic.tryMove(move).getCaptured();
+                    MoveResult result = logic.tryMove(move);
+                    
 
-                    if (removedStones == null) {
+                    if (!result.isLegal()) {
                         Message illegalMsg = new Message();
                         illegalMsg.type = MessageType.INVALID_MOVE;
                         currentPlayer.sendMessage(illegalMsg);
@@ -96,6 +102,7 @@ public class GameSession implements Runnable {
                     }
 
                     // Broadcast move + removed stones
+                    List<Point> removedStones = result.getCaptured();
                     Message moveMsg = new Message();
                     moveMsg.type = MessageType.MOVE;
                     moveMsg.nick = currentPlayer.username;
@@ -104,7 +111,7 @@ public class GameSession implements Runnable {
                     room.broadcast(moveMsg);
 
                     addPrisoners(removedStones, room.getColor(currentPlayer));
-                    //broadcastBoard();
+                    broadcastBoard();
 
                     consecutivePasses = 0;
                 }
@@ -127,7 +134,11 @@ public class GameSession implements Runnable {
         
         Message boardMsg = new Message();
         boardMsg.type = MessageType.BOARD_UPDATE;
-        boardMsg.board = logic.getBoard();
+        if (logic.getBoard() == null) {
+            System.out.println("[SERVER] Board is null!");
+            return;
+        }
+        boardMsg.boardState = logic.getBoard().getStateCopy();
         room.broadcast(boardMsg);
     }
 
@@ -158,7 +169,7 @@ public class GameSession implements Runnable {
 
     private void endGameByPass() {
 
-        broadcastInfo("Game ended by consecutive passes");
+        //broadcastInfo("Game ended by consecutive passes");
 
         Map<StoneColor, Integer> finalScore = logic.countTerritory(getPrisoners());
         int blackPoints = finalScore.get(StoneColor.BLACK_STONE);

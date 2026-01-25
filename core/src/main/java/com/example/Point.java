@@ -1,6 +1,8 @@
 package com.example;
 
-public class Point {
+import java.io.Serializable;
+
+public class Point implements Serializable {
 
     int x, y;
 

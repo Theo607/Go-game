@@ -6,6 +6,7 @@ import java.util.List;
 public class Message implements Serializable {
     public MessageType type;
     public Board board;
+    public StoneColor[][] boardState;
     public String nick;
     public String roomName;
     public String[] playerNames;
@@ -16,4 +17,6 @@ public class Message implements Serializable {
     public List<Point> removedStones;
     public int blackScore;
     public int whiteScore;
+    public int x;
+    public int y;
 }

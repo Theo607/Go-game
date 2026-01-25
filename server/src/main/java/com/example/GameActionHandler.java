@@ -56,15 +56,14 @@ public class GameActionHandler {
     }
 
     private void handleMove(Message msg, StoneColor stoneColor) throws Exception {
-        Move move = msg.move;
 
-        if (move == null) {
+        /*if (move == null) {
             sendError("Move is missing in the message.");
             return;
-        }
+        }*/
 
         // Ensure the move has the correct color assigned from the player
-        Move coloredMove = new Move(move.getX(), move.getY(), stoneColor);
+        Move coloredMove = new Move(msg.x, msg.y, stoneColor);
         client.submitAction(PlayerAction.move(coloredMove));
     }
 

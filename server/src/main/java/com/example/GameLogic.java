@@ -84,9 +84,8 @@ public class GameLogic {
         visited[p.x() - 1][p.y() - 1] = true;
         group.add(p);
 
-        for (Point n : neighbors(p.x(), p.y())) {
+        for (Point n : neighbors(p.x(), p.y()))
             dfsGroup(n, color, visited, group);
-        }
     }
 
     private int countLiberties(Set<Point> group) {
@@ -94,9 +93,8 @@ public class GameLogic {
 
         for (Point p : group) {
             for (Point n : neighbors(p.x(), p.y())) {
-                if (board.getInterSec(n.x(), n.y()) == StoneColor.EMPTY_STONE) {
+                if (board.getInterSec(n.x(), n.y()) == StoneColor.EMPTY_STONE)
                     liberties.add(n);
-                }
             }
         }
         return liberties.size();
@@ -115,10 +113,14 @@ public class GameLogic {
         List<Point> n = new ArrayList<>();
         int size = board.getSize();
 
-        if (x > 1) n.add(new Point(x - 1, y));
-        if (x < size) n.add(new Point(x + 1, y));
-        if (y > 1) n.add(new Point(x, y - 1));
-        if (y < size) n.add(new Point(x, y + 1));
+        if (x > 1) 
+            n.add(new Point(x - 1, y));
+        if (x < size) 
+            n.add(new Point(x + 1, y));
+        if (y > 1) 
+            n.add(new Point(x, y - 1));
+        if (y < size) 
+            n.add(new Point(x, y + 1));
 
         return n;
     }

@@ -8,7 +8,7 @@ public class Board implements Serializable{
 
     public Board(int lines) {
         this.size = lines;
-        field = new StoneColor[size][size];
+        this.field = new StoneColor[size][size];
 
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
@@ -73,6 +73,16 @@ public class Board implements Serializable{
         for (int r = 1; r <= size; r++) {
             for (int c = 1; c <= size; c++) {
                 copy.setInterSec(r, c, getInterSec(r, c));
+            }
+        }
+        return copy;
+    }
+
+    public StoneColor[][] getStateCopy() {
+        StoneColor[][] copy = new StoneColor[size][size];
+        for (int r = 1; r <= size; r++) {
+            for (int c = 1; c <= size; c++) {
+                copy[r-1][c-1] = getInterSec(r, c);
             }
         }
         return copy;

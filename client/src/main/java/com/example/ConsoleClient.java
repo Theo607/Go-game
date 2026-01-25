@@ -94,12 +94,16 @@ public class ConsoleClient {
             case "decline" -> { msg.type = MessageType.DECLINE_SWAP; networkClient.sendMessage(msg); }
 
             case "move" -> {
-                if (args.length < 2) { Logger.info("Usage: move <x> <y>"); return; }
+                if (args.length < 2) {
+                    Logger.info("Usage: move <x> <y>");
+                    return;
+                }
                 try {
                     int x = Integer.parseInt(args[0]);
                     int y = Integer.parseInt(args[1]);
                     msg.type = MessageType.MOVE;
-                    msg.move = new Move(x, y, null); // color will be set by server
+                    msg.x = x;
+                    msg.y = y;
                     networkClient.sendMessage(msg);
                 } catch (NumberFormatException e) {
                     Logger.info("Invalid coordinates.");
@@ -131,7 +135,7 @@ public class ConsoleClient {
                   join <roomId>        - Join a room
                   leave                - Leave current room
                   rooms                - List all rooms
-                  players              - list all players in your current room
+                  players              - List all players in your current room
                   pick <BLACK|WHITE>   - Pick your stone color
                   swap                 - Request color swap
                   accept               - Accept color swap
@@ -155,7 +159,9 @@ public class ConsoleClient {
             case LEAVE_ROOM -> Logger.info("Left room: " + msg.roomName);
             case ROOM_LIST -> {
                 Logger.info("Available rooms:");
-                if (msg.roomList != null) for (String r : msg.roomList) Logger.info(r);
+                if (msg.roomList != null) 
+                    for (String r : msg.roomList)
+                        Logger.info(r);
             }
             case PLAYER_LIST -> {
                 Logger.info("Players in room:");
@@ -172,46 +178,29 @@ public class ConsoleClient {
             }
             case YOUR_TURN -> Logger.info("It's your turn.");
             case INVALID_MOVE -> Logger.info("Invalid move.");
-            case MOVE -> {
-                if (localBoard == null) {
-                    Logger.warn("Local board not initialized yet! Creating new board of size 19");
-                    localBoard = new Board(19);
-                }
-
-                // Apply the placed stone
-                int x = msg.move.getX();
-                int y = msg.move.getY();
-                StoneColor color = msg.move.getState();
-                localBoard.setInterSec(x, y, color);
-
-                // Remove captured stones if any
-                if (msg.removedStones != null) {
-                    for (Point p : msg.removedStones) {
-                        localBoard.setInterSec(p.x(), p.y(), StoneColor.EMPTY_STONE);
-                    }
-                }
-
-                Logger.info(msg.nick + " played a move at " + x + "," + y);
-                Logger.info("\n" + localBoard.boardToString());
-            }
             case BOARD_UPDATE -> {
-                // Optionally, for synchronization
-                if (localBoard == null && msg.board != null) {
-                    localBoard = new Board(msg.board.getSize());
-                }
-                if (msg.board != null) {
-                    for (int r = 1; r <= localBoard.getSize(); r++) {
-                        for (int c = 1; c <= localBoard.getSize(); c++) {
-                            localBoard.setInterSec(r, c, msg.board.getInterSec(r, c));
+                if (msg.boardState != null) {
+                    if (localBoard == null)
+                        localBoard = new Board(msg.boardState.length);
+                    for (int r = 0; r < msg.boardState.length; r++) {
+                        for (int c = 0; c < msg.boardState[r].length; c++) {
+                            localBoard.setInterSec(r+1, c+1, msg.boardState[r][c]);
                         }
                     }
                     Logger.info("Board updated:");
                     Logger.info("\n" + localBoard.boardToString());
+                } else {
+                    Logger.warn("Received BOARD_UPDATE with null boardState!");
                 }
             }
             case GAME_WON -> Logger.info("Game won!");
             case GAME_LOST -> Logger.info("Game lost!");
             case GAME_TIED -> Logger.info("Game tied!");
+            case GAME_RESULT -> {
+                Logger.info("Game ended!");
+                Logger.info("Black:" + msg.blackScore);
+                Logger.info("White: " + msg.whiteScore);
+            }
             case ERROR -> Logger.error("Server error: " + msg.error);
             default -> Logger.info("Server message: " + msg.type);
         }

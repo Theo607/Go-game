@@ -12,7 +12,7 @@ public class Logger {
 
     private static volatile Level currentLevel = Level.INFO;
 
-    private Logger() { /*no instanes*/ }
+    private Logger() { /*no instances*/ }
 
     public static void setLevel(Level level) {
         currentLevel = level;
@@ -41,16 +41,21 @@ public class Logger {
     public static void info(String message) {
         log(Level.INFO, message, null);
     }
+
     public static void warn(String message) {
         log(Level.WARN, message, null);
     }
+
     public static void error(String message) {
         log(Level.ERROR, message, null);
     }
+
     public static void error(String message, Throwable throwable) {
         log(Level.ERROR, message, throwable);
     }
+
     public static void debug(String message) {
         log(Level.DEBUG, message, null);
     }
+
 }

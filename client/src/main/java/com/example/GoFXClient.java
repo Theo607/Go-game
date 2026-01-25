@@ -46,7 +46,7 @@ public class GoFXClient extends Application {
 
     private Button beginBtn;
 
-    private int boardSize = 19;
+    private final int boardSize = 19;
 
     public static void main(String[] args) {
         launch(args);
@@ -158,6 +158,8 @@ public class GoFXClient extends Application {
             networkClient.sendMessage(msg);
         });
 
+        passBtn.setOnAction(e -> sendCommand(MessageType.PASS));
+        resignBtn.setOnAction(e -> sendCommand(MessageType.RESIGN));
         beginBtn.setOnAction(e -> sendCommand(MessageType.BEGIN));
 
         // --- Disable buttons initially ---
@@ -253,11 +255,16 @@ public class GoFXClient extends Application {
     }
 
     private void sendMove(int x, int y) {
-        if (localBoard == null) return;
+        if (localBoard == null) {
+            log("Cannot send move: board not initialized");
+            return;
+        }
+        log("Sending move: " + x + "," + y);
         Message msg = new Message();
         msg.type = MessageType.MOVE;
         try {
-            msg.move = new Move(x, y, null);
+            msg.x = x;
+            msg.y = y;
         } catch (Exception e) {
             Logger.info("Invalid move: " + e.getMessage());
         }
@@ -265,10 +272,10 @@ public class GoFXClient extends Application {
     }
 
     private void updateBoardGrid(Board board) {
-        for (int r = 1; r <= board.getSize(); r++) {
-            for (int c = 1; c <= board.getSize(); c++) {
-                StoneColor s = board.getInterSec(r, c);
-                Button cell = (Button) getNodeByRowColumnIndex(r - 1, c - 1, boardGrid);
+        for (int r = 0; r < board.getSize(); r++) {
+            for (int c = 0; c < board.getSize(); c++) {
+                StoneColor s = board.getInterSec(r+1, c+1);
+                Button cell = (Button) getNodeByRowColumnIndex(r, c, boardGrid);
                 if (cell != null) {
                     cell.setText(s == StoneColor.BLACK_STONE ? "X" :
                                  s == StoneColor.WHITE_STONE ? "O" : "+");
@@ -316,26 +323,15 @@ public class GoFXClient extends Application {
                     localBoard = new Board(boardSize);
                     updateBoardGrid(localBoard);
                 }
-                case MOVE -> {
-                    if (localBoard == null) break;
-                    int x = msg.move.getX();
-                    int y = msg.move.getY();
-                    StoneColor color = msg.move.getState();
-                    localBoard.setInterSec(x, y, color);
-
-                    // Remove captured stones
-                    if (msg.removedStones != null) {
-                        for (Point p : msg.removedStones) {
-                            localBoard.setInterSec(p.x(), p.y(), StoneColor.EMPTY_STONE);
-                        }
-                    }
-
-                    updateBoardGrid(localBoard);
-                    log(msg.nick + " played: " + x + "," + y);
-                }
                 case BOARD_UPDATE -> {
-                    if (msg.board != null) {
-                        localBoard = msg.board;
+                    if (msg.boardState != null) {
+                        if (localBoard == null)
+                            localBoard = new Board(msg.boardState.length);
+                        for (int r = 0; r < msg.boardState.length; r++) {
+                            for (int c = 0; c < msg.boardState[r].length; c++) {
+                                localBoard.setInterSec(r+1, c+1, msg.boardState[r][c]);
+                            }
+                        }
                         updateBoardGrid(localBoard);
                     }
                 }
@@ -350,6 +346,11 @@ public class GoFXClient extends Application {
                 case ROOM_LIST -> {
                     log("Rooms: ");
                     for(String r : msg.roomList) log(r);
+                }
+                case GAME_RESULT -> {
+                    log("Game ended!");
+                    log("Black:" + msg.blackScore);
+                    log("White: " + msg.whiteScore);
                 }
             }
         });
