@@ -6,5 +6,5 @@ gradle :client:run --console=plain --args="gui" --no-configuration-cache &
 CLIENT_1=$!
 gradle :client:run --console=plain --args="gui" --no-configuration-cache &
 CLIENT_2=$!
-trap "kill $SERVER_PID $CLIENT_1 $CLIENT_2"
+trap "kill $SERVER_PID $CLIENT_1 $CLIENT_2" INT TERM EXIT
 wait
