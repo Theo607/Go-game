@@ -1,48 +1,51 @@
+[![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md)
+[![Polish](https://img.shields.io/badge/lang-Polish-red.svg)](README.pl.md)
+
 # Go Game (Java, Client-Server)
 
-Projekt sieciowej implementacji chińskiej gry planszowej **Go** (wersja oparta na architekturze klient-serwer),
-napisany w języku **Java** z wykorzystaniem środowiska **Gradle** oraz interfejsu graficznego **JavaFX**.
+A networked implementation project of the traditional board game **Go** (based on a client-server architecture),
+written in **Java** using the **Gradle** build tool and the **JavaFX** graphical user interface.
 
 ---
 
-## Wymagania
+## Requirements
 
-* **Java JDK** w wersji **21** lub nowej.
-* **Gradle** (projekt zawiera skrypt Wrapper, więc można używać poleceń `./gradlew` lub `gradle`).
+* **Java JDK** version **21** or newer.
+* **Gradle** (the project includes a Wrapper script, so you can use `./gradlew` or `gradle`).
 
 ---
 
-## Start i kompilacja
+## Start and Compilation
 
-### Budowanie Projektu
+### Building the Project
 
-Aby skompilować projekt i wyczyścić poprzedniebuildy, wykonaj:
+To compile the project and clean previous builds, run:
 ```bash
 gradle clean build
 ```
 
-### Uruchomienie Serwera
+### Starting the Server
 
-Domyślnie serwer nasłuchuje na porcie `1664`.
+By default, the server listens on port `1664`.
 
 ```bash
 gradle :server:run --console=plain --no-configuration-cache
 ```
 
-### Uruchomienie Klienta
+### Starting the Client
 
-- Tryb konsolowy (CLI):
+* Console mode (CLI):
 ```bash
 gradle :client:run --console=plain --no-configuration-cache
 ```
-
-- Tryb graficzny:
+* Graphical mode:
 ```bash
 gradle :client:run --console=plain --args="gui" --no-configuration-cache
 ```
 
-### Uruchomienie Testowe
-Jeśli chcesz szybko uruchomić serwer oraz dwie instancje klientów GUI w celach testowych, możesz skorzystać z poniższego skryptu bashowego:
+### Test Execution
+
+If you want to quickly start the server and two GUI client instances for testing purposes, you can use the following bash script:
 
 ```bash
 #!/usr/bin/env bash
@@ -53,30 +56,33 @@ gradle :client:run --console=plain --args="gui" --no-configuration-cache &
 CLIENT_1=$!
 gradle :client:run --console=plain --args="gui" --no-configuration-cache &
 CLIENT_2=$!
-trap "kill $SERVER_PID $CLIENT_1 $CLIENT_2" INT TERM EXIT
+trap "kill $SERVER_PID $CLIENT_1$CLIENT_2" INT TERM EXIT
 wait
 ```
 
 ---
 
-## Przebieg rozgrywki
+## Gameplay Flow
 
-Aby pomyślnie rozpocząć grę między klientami, przejdź przez następującą ścieżkę poleceń/akcji:
-* SETNAME - ustaw unikalny nick w grze
-* CREATE ROOM / JOIN - stwórz / dołącz do pokoju
-* PICK COLOR (BLACK / WHITE) - wybierz kolor
-* BEGIN - host rozpoczyna grę gdy wszyscy są gotowi
-* ROZGRYWKA
+To successfully start a game between clients, follow this command/action path:
+
+* SETNAME - set a unique nickname in the game
+* CREATE ROOM / JOIN - create or join a room
+* PICK COLOR (BLACK / WHITE) - choose a color
+* BEGIN - the host starts the game when everyone is ready
+* GAMEPLAY
 
 ### Format
-W trybie konsolowym / wewnątrz logiki ruch definiowany jest jako:
+
+In console mode / within the logic, a move is defined as:
 ```
 move row col
 ```
 
 ---
 
-## Architektura
-- `Server` obsługuje połączenia TCP na porcie `1664`, zarządza wielowątkowymi sesjami klientów (`ClientHandler`), pokojami oraz stanem globalnym za pomocą `ClientManager` i `RoomManager`.
-- `GameLogic` moduł reguł gry Go. Odpowiada za walidację posunięć, wykrywanie oddechów za pomocą algorytmu DFS, egzekwowanie kluczowych zasad takich jak zasada samobójstwa i Ko.
-- `GoFXClient`Interfejs graficzny oparty na JavaFX, zapewniający dynamiczną aktualizację siatki planszy, obsługę zdarzeń sieciowych oraz akcje takie jak pasowanie (Pass), rezygnacja (Resign) czy wymiana kamieni (Swap).
+## Architecture
+
+* `Server` handles TCP connections on port `1664`, manages multi-threaded client sessions (`ClientHandler`), rooms, and the global state using `ClientManager` and `RoomManager`.
+* `GameLogic` module of Go game rules. Responsible for move validation, detecting liberties using the DFS algorithm, and enforcing key rules such as the suicide rule and Ko.
+* `GoFXClient` Graphical user interface based on JavaFX, providing dynamic board grid updates, network event handling, and actions such as Pass, Resign, or Swap.
