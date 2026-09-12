@@ -50,12 +50,18 @@ Jeśli chcesz szybko uruchomić serwer oraz dwie instancje klientów GUI w celac
 ```bash
 #!/usr/bin/env bash
 set -e
-gradle :server:run --console=plain --no-configuration-cache &
+
+gradle :server:run --console=plain --no-configuration-cache > server.log 2>&1 &
 SERVER_PID=$!
-gradle :client:run --console=plain --args="gui" --no-configuration-cache &
+
+sleep 1
+
+gradle :client:run --console=plain --args="gui" --no-configuration-cache > client1.log 2>&1 &
 CLIENT_1=$!
-gradle :client:run --console=plain --args="gui" --no-configuration-cache &
+
+gradle :client:run --console=plain --args="gui" --no-configuration-cache > client2.log 2>&1 &
 CLIENT_2=$!
+
 trap "kill $SERVER_PID $CLIENT_1 $CLIENT_2" INT TERM EXIT
 wait
 ```

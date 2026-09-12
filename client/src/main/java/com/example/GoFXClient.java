@@ -12,6 +12,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.scene.control.ScrollPane;
 
 public class GoFXClient extends Application {
 
@@ -165,7 +166,10 @@ public class GoFXClient extends Application {
         // --- Disable buttons initially ---
         updateButtonStates();
 
-        Scene scene = new Scene(root, 1000, 800);
+        ScrollPane scrollPane = new ScrollPane(root);
+        scrollPane.setFitToWidth(true);
+
+        Scene scene = new Scene(scrollPane, 1000, 800);
         stage.setScene(scene);
         stage.setTitle("Go Game Client");
         stage.show();
